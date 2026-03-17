@@ -2,6 +2,7 @@ import Fastify, { type FastifyRequest, type FastifyReply } from "fastify";
 import { randomUUID } from "crypto";
 
 import { registry } from "./src/registry";
+import { verifyEd25519 } from "./src/auth";
 import type {
   SseClient,
   SseEvent,
@@ -10,7 +11,6 @@ import type {
   PushTopicBody,
 } from "./src/types";
 
-const SUBSCRIBE_SECRET = process.env.SUBSCRIBE_SECRET ?? "dev-subscribe-secret";
 const PUSH_SECRET = process.env.PUSH_SECRET ?? "dev-push-secret";
 
 const app = Fastify({ logger: true });
@@ -43,13 +43,11 @@ app.get("/", async () => {
 // SSE subscribe
 app.get<{ Querystring: SubscribeQuery }>(
   "/subscribe",
-  { preHandler: makeBearer(SUBSCRIBE_SECRET) },
+  { preHandler: verifyEd25519 },
   async (req, reply) => {
-    const { deviceToken, topics: topicsStr } = req.query;
-
-    if (!deviceToken) {
-      return reply.code(400).send({ error: "deviceToken is required" });
-    }
+    // The public key hex is the device token, already verified by verifyEd25519
+    const deviceToken = req.headers["x-agent-pubkey"] as string;
+    const { topics: topicsStr } = req.query;
 
     const topics = topicsStr
       ? new Set(

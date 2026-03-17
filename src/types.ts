@@ -19,7 +19,6 @@ export interface SseClient {
 }
 
 export interface SubscribeQuery {
-  deviceToken: string;
   topics?: string;
 }
 
