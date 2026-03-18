@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 
 import { registry } from "./src/registry";
 import { verifyEd25519 } from "./src/auth";
+import { notificationSchema, sendNotificationSchema } from "./src/schemas";
 import { formatSseFrame } from "./src/sse";
 import type {
   SseClient,
@@ -102,23 +103,6 @@ app.get<{ Querystring: SubscribeQuery }>(
     });
   }
 );
-
-const notificationSchema = {
-  type: "object",
-  required: ["body"],
-  properties: {
-    body: { type: "string" },
-    from: { type: "string" },
-  },
-};
-
-/** /send only: notification has body. Server injects from from X-Agent-Pubkey. */
-const sendNotificationSchema = {
-  type: "object",
-  required: ["body"],
-  properties: { body: { type: "string" } },
-  additionalProperties: false,
-};
 
 // Push to device token
 app.post<{ Body: PushTokenBody }>(
