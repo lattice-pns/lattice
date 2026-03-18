@@ -112,6 +112,14 @@ const notificationSchema = {
   },
 };
 
+/** /send only: notification has body. Server injects from from X-Agent-Pubkey. */
+const sendNotificationSchema = {
+  type: "object",
+  required: ["body"],
+  properties: { body: { type: "string" } },
+  additionalProperties: false,
+};
+
 // Push to device token
 app.post<{ Body: PushTokenBody }>(
   "/push/token",
@@ -149,7 +157,7 @@ app.post<{ Body: PushTokenBody }>(
         required: ["deviceToken", "notification"],
         properties: {
           deviceToken: { type: "string" },
-          notification: notificationSchema,
+          notification: sendNotificationSchema,
         },
       },
     },

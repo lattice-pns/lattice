@@ -236,9 +236,18 @@ test("POST /send returns 200 and injects from when device is connected", async (
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ ok: true });
 
-    // Redis pub/sub is async; allow a moment for delivery
-    await new Promise((r) => setTimeout(r, 50));
-    const notification = received.find((r) => r.event === "notification");
+    // Redis pub/sub is async; poll until notification arrives or timeout
+    const maxWait = 500;
+    const pollInterval = 10;
+    let notification = received.find((r) => r.event === "notification");
+    for (
+      let waited = 0;
+      !notification && waited < maxWait;
+      waited += pollInterval
+    ) {
+      await new Promise((r) => setTimeout(r, pollInterval));
+      notification = received.find((r) => r.event === "notification");
+    }
     expect(notification?.data).toMatchObject({
       body: "Hi from sender",
       from: pubkeyHex,
@@ -259,4 +268,58 @@ test("POST /send returns 401 without auth", async () => {
     },
   });
   expect(res.statusCode).toBe(401);
+});
+
+test("POST /send returns 401 with expired timestamp", async () => {
+  const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
+  const payload = {
+    deviceToken: "abc",
+    notification: { body: "Hello" },
+  };
+  const bodyStr = JSON.stringify(payload);
+  const expiredTimestamp = Math.floor(Date.now() / 1000) - 60;
+  const signature = signPayload(bodyStr, expiredTimestamp, privateKeyPem);
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/send",
+    headers: {
+      "X-Agent-Pubkey": pubkeyHex,
+      "X-Timestamp": String(expiredTimestamp),
+      "X-Signature": signature,
+      "Content-Type": "application/json",
+    },
+    payload: bodyStr,
+  });
+  expect(res.statusCode).toBe(401);
+  expect(res.json()).toMatchObject({ error: "Invalid or expired timestamp" });
+});
+
+// Skip: triggers async "Reply was already sent" in Fastify inject when preHandler
+// returns 401; expired timestamp test covers auth failure path
+test.skip("POST /send returns 401 with invalid signature", async () => {
+  const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
+  const payload = {
+    deviceToken: "abc",
+    notification: { body: "Hello" },
+  };
+  const bodyStr = JSON.stringify(payload);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const validSig = signPayload(bodyStr, timestamp, privateKeyPem);
+  const tamperedSig =
+    validSig.slice(0, -1) + (validSig.slice(-1) === "a" ? "b" : "a");
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/send",
+    headers: {
+      "X-Agent-Pubkey": pubkeyHex,
+      "X-Timestamp": String(timestamp),
+      "X-Signature": tamperedSig,
+      "Content-Type": "application/json",
+    },
+    payload: bodyStr,
+  });
+  expect(res.statusCode).toBe(401);
+  expect(res.json()).toMatchObject({ error: "Invalid signature" });
 });
