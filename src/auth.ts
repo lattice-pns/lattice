@@ -11,11 +11,11 @@ import type { FastifyRequest, FastifyReply } from "fastify";
  * Signed payload (GET/DELETE): ";{timestamp}"
  * Signed payload (POST/PATCH): "{requestBody};{timestamp}"
  *
- * The public key doubles as the device token.
+ * The public key is the agent identity.
  */
 export async function verifyEd25519(
   req: FastifyRequest,
-  reply: FastifyReply
+  _reply: FastifyReply
 ): Promise<void> {
   const pubkeyHex = req.headers["x-agent-pubkey"];
   const timestampStr = req.headers["x-timestamp"];
@@ -26,16 +26,12 @@ export async function verifyEd25519(
     typeof timestampStr !== "string" ||
     typeof signatureHex !== "string"
   ) {
-    reply
-      .code(401)
-      .send({ error: "Missing X-Agent-Pubkey, X-Timestamp, or X-Signature" });
-    return;
+    throw unauthorized("Missing X-Agent-Pubkey, X-Timestamp, or X-Signature");
   }
 
   const timestamp = parseInt(timestampStr, 10);
   if (isNaN(timestamp) || Math.abs(Date.now() / 1000 - timestamp) > 30) {
-    reply.code(401).send({ error: "Invalid or expired timestamp" });
-    return;
+    throw unauthorized("Invalid or expired timestamp");
   }
 
   let pubkeyBytes: Uint8Array<ArrayBuffer>;
@@ -56,13 +52,11 @@ export async function verifyEd25519(
       ) as ArrayBuffer
     );
   } catch {
-    reply.code(401).send({ error: "Invalid hex encoding" });
-    return;
+    throw unauthorized("Invalid hex encoding");
   }
 
   if (pubkeyBytes.length !== 32 || sigBytes.length !== 64) {
-    reply.code(401).send({ error: "Invalid key or signature length" });
-    return;
+    throw unauthorized("Invalid key or signature length");
   }
 
   const body =
@@ -81,8 +75,7 @@ export async function verifyEd25519(
       ["verify"]
     );
   } catch {
-    reply.code(401).send({ error: "Invalid public key" });
-    return;
+    throw unauthorized("Invalid public key");
   }
 
   const valid = await crypto.subtle.verify(
@@ -93,7 +86,10 @@ export async function verifyEd25519(
   );
 
   if (!valid) {
-    reply.code(401).send({ error: "Invalid signature" });
-    return;
+    throw unauthorized("Invalid signature");
   }
+}
+
+function unauthorized(message: string): Error & { statusCode: number } {
+  return Object.assign(new Error(message), { statusCode: 401 });
 }
