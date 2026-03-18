@@ -89,8 +89,8 @@ if (mode === "send") {
   const res = await fetch(`${SERVER_URL}${endpoint}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${PUSH_SECRET}`,
       "Content-Type": "application/json",
+      ...(mode === "topic" && { Authorization: `Bearer ${PUSH_SECRET}` }),
     },
     body: JSON.stringify(payload),
   });

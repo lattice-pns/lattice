@@ -35,20 +35,10 @@ test("GET / returns health status", async () => {
   expect(typeof body.connections).toBe("number");
 });
 
-test("POST /push/token returns 401 without auth", async () => {
-  const res = await app.inject({
-    method: "POST",
-    url: "/push/token",
-    payload: { pubkey: "abc", body: "Hello" },
-  });
-  expect(res.statusCode).toBe(401);
-});
-
 test("POST /push/token returns 400 with invalid body", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/push/token",
-    headers: { authorization: "Bearer dev-push-secret" },
     payload: { pubkey: "abc" }, // missing body
   });
   expect(res.statusCode).toBe(400);
@@ -58,7 +48,6 @@ test("POST /push/token returns 404 when agent not connected", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/push/token",
-    headers: { authorization: "Bearer dev-push-secret" },
     payload: { pubkey: "nonexistent-pubkey", body: "Hello" },
   });
   expect(res.statusCode).toBe(404);
@@ -80,7 +69,6 @@ test("POST /push/token returns 200 when agent is connected", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/push/token",
-      headers: { authorization: "Bearer dev-push-secret" },
       payload: { pubkey, body: "Hello" },
     });
     expect(res.statusCode).toBe(200);

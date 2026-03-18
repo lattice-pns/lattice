@@ -112,13 +112,10 @@ app.get<{ Querystring: SubscribeQuery }>(
   }
 );
 
-// System push to a specific agent pubkey (bearer auth)
+// System push to a specific agent pubkey (unauthenticated)
 app.post<{ Body: PushTokenBody }>(
   "/push/token",
-  {
-    preHandler: makeBearer(PUSH_SECRET),
-    schema: { body: pushTokenSchema },
-  },
+  { schema: { body: pushTokenSchema } },
   async (req, reply) => {
     const { pubkey, body } = req.body;
     const delivered = await registry.pushToToken(pubkey, { body });

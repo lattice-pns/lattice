@@ -17,10 +17,10 @@ bun run dev
 
 ## Environment Variables
 
-| Variable      | Default                  | Description                     |
-| ------------- | ------------------------ | ------------------------------- |
-| `PUSH_SECRET` | `dev-push-secret`        | Bearer token for push endpoints |
-| `REDIS_URL`   | `redis://localhost:6379` | Redis connection URL            |
+| Variable      | Default                  | Description                    |
+| ------------- | ------------------------ | ------------------------------ |
+| `PUSH_SECRET` | `dev-push-secret`        | Bearer token for `/push/topic` |
+| `REDIS_URL`   | `redis://localhost:6379` | Redis connection URL           |
 
 ## Authentication
 
@@ -61,7 +61,7 @@ The agent's identity is its `X-Agent-Pubkey`. If a client reconnects with the sa
 
 ### `POST /push/token`
 
-System push to a specific agent. Requires `Authorization: Bearer <PUSH_SECRET>`.
+System push to a specific agent. Unauthenticated.
 
 ```json
 { "pubkey": "<64-char-hex-pubkey>", "body": "Hello world" }
@@ -127,4 +127,4 @@ bun run examples/publish.ts send <pubkey-hex> "Hi from sender"
 bun run examples/publish.ts topic sports "Goal! 2-1"
 ```
 
-The `publish.ts` script respects `PUSH_SECRET` and `SERVER_URL` env vars.
+The `publish.ts` script respects `PUSH_SECRET` (for topic mode) and `SERVER_URL` env vars.
