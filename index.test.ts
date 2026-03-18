@@ -114,3 +114,33 @@ test("POST /push/topic returns 400 with invalid body", async () => {
   });
   expect(res.statusCode).toBe(400);
 });
+
+test("POST /push/topic returns 200 when client subscribed to topic", async () => {
+  const topic = "test-topic-" + Date.now();
+  const deviceToken = "test-device-" + Date.now();
+  const heartbeatInterval = setInterval(() => {}, 999_999);
+  await registry.register({
+    deviceToken,
+    topics: new Set([topic]),
+    write: () => {},
+    disconnect: () => {},
+    heartbeatInterval,
+  });
+
+  try {
+    const res = await app.inject({
+      method: "POST",
+      url: "/push/topic",
+      headers: { authorization: "Bearer dev-push-secret" },
+      payload: {
+        topic,
+        notification: { title: "Hi", body: "Hello" },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true, recipients: 1 });
+  } finally {
+    clearInterval(heartbeatInterval);
+    await registry.deregister(deviceToken);
+  }
+});
