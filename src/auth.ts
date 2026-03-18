@@ -11,11 +11,11 @@ import type { FastifyRequest, FastifyReply } from "fastify";
  * Signed payload (GET/DELETE): ";{timestamp}"
  * Signed payload (POST/PATCH): "{requestBody};{timestamp}"
  *
- * The public key doubles as the device token.
+ * The public key is the agent identity.
  */
 export async function verifyEd25519(
   req: FastifyRequest,
-  reply: FastifyReply
+  _reply: FastifyReply
 ): Promise<void> {
   const pubkeyHex = req.headers["x-agent-pubkey"];
   const timestampStr = req.headers["x-timestamp"];
@@ -26,14 +26,12 @@ export async function verifyEd25519(
     typeof timestampStr !== "string" ||
     typeof signatureHex !== "string"
   ) {
-    return reply
-      .code(401)
-      .send({ error: "Missing X-Agent-Pubkey, X-Timestamp, or X-Signature" });
+    throw unauthorized("Missing X-Agent-Pubkey, X-Timestamp, or X-Signature");
   }
 
   const timestamp = parseInt(timestampStr, 10);
   if (isNaN(timestamp) || Math.abs(Date.now() / 1000 - timestamp) > 30) {
-    return reply.code(401).send({ error: "Invalid or expired timestamp" });
+    throw unauthorized("Invalid or expired timestamp");
   }
 
   let pubkeyBytes: Uint8Array<ArrayBuffer>;
@@ -54,11 +52,11 @@ export async function verifyEd25519(
       ) as ArrayBuffer
     );
   } catch {
-    return reply.code(401).send({ error: "Invalid hex encoding" });
+    throw unauthorized("Invalid hex encoding");
   }
 
   if (pubkeyBytes.length !== 32 || sigBytes.length !== 64) {
-    return reply.code(401).send({ error: "Invalid key or signature length" });
+    throw unauthorized("Invalid key or signature length");
   }
 
   const body =
@@ -77,7 +75,7 @@ export async function verifyEd25519(
       ["verify"]
     );
   } catch {
-    return reply.code(401).send({ error: "Invalid public key" });
+    throw unauthorized("Invalid public key");
   }
 
   const valid = await crypto.subtle.verify(
@@ -88,6 +86,10 @@ export async function verifyEd25519(
   );
 
   if (!valid) {
-    return reply.code(401).send({ error: "Invalid signature" });
+    throw unauthorized("Invalid signature");
   }
+}
+
+function unauthorized(message: string): Error & { statusCode: number } {
+  return Object.assign(new Error(message), { statusCode: 401 });
 }

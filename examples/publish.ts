@@ -56,10 +56,7 @@ function signRequest(
 
 if (mode === "send") {
   const { pubkeyHex, privateKeyPem } = generateKeys();
-  const requestBody = {
-    deviceToken: target,
-    notification: { body },
-  };
+  const requestBody = { to: target, body };
   const bodyStr = JSON.stringify(requestBody);
   const timestamp = Math.floor(Date.now() / 1000);
   const signature = signRequest(privateKeyPem, bodyStr, timestamp);
@@ -87,12 +84,9 @@ if (mode === "send") {
   console.log(`Sent:`, json);
 } else {
   const endpoint = mode === "token" ? "/push/token" : "/push/topic";
-  const bodyKey = mode === "token" ? "deviceToken" : "topic";
+  const bodyKey = mode === "token" ? "pubkey" : "topic";
 
-  const payload = {
-    [bodyKey]: target,
-    notification: { body },
-  };
+  const payload = { [bodyKey]: target, body };
 
   const res = await fetch(`${SERVER_URL}${endpoint}`, {
     method: "POST",

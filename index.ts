@@ -1,4 +1,8 @@
-import Fastify, { type FastifyRequest, type FastifyReply } from "fastify";
+import Fastify, {
+  type FastifyRequest,
+  type FastifyReply,
+  type FastifyError,
+} from "fastify";
 import { randomUUID } from "crypto";
 
 import { registry } from "./src/registry";
@@ -19,16 +23,20 @@ const PUSH_SECRET = process.env.PUSH_SECRET ?? "dev-push-secret";
 const app = Fastify({ logger: true });
 
 function makeBearer(secret: string) {
-  return async function requireBearer(
-    req: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  return async function requireBearer(req: FastifyRequest) {
     const auth = req.headers.authorization;
     if (!auth?.startsWith("Bearer ") || auth.slice(7) !== secret) {
-      return reply.code(401).send({ error: "Unauthorized" });
+      throw Object.assign(new Error("Unauthorized"), { statusCode: 401 });
     }
   };
 }
+
+// Format thrown errors consistently as { error: message }
+app.setErrorHandler(
+  (error: FastifyError, _req: FastifyRequest, reply: FastifyReply) => {
+    reply.code(error.statusCode ?? 500).send({ error: error.message });
+  }
+);
 
 // Health check
 app.get("/", async () => {

@@ -220,6 +220,29 @@ test("POST /send returns 401 without auth", async () => {
   expect(res.statusCode).toBe(401);
 });
 
+test("POST /send returns 401 with invalid signature", async () => {
+  const { pubkeyHex } = generateEd25519Keys();
+  const { privateKeyPem: otherKey } = generateEd25519Keys(); // wrong key
+  const payload = { to: "abc", body: "Hello" };
+  const bodyStr = JSON.stringify(payload);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = signPayload(bodyStr, timestamp, otherKey);
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/send",
+    headers: {
+      "X-Agent-Pubkey": pubkeyHex,
+      "X-Timestamp": String(timestamp),
+      "X-Signature": signature,
+      "Content-Type": "application/json",
+    },
+    payload: bodyStr,
+  });
+  expect(res.statusCode).toBe(401);
+  expect(res.json()).toMatchObject({ error: "Invalid signature" });
+});
+
 test("POST /send returns 401 with expired timestamp", async () => {
   const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
   const payload = { to: "abc", body: "Hello" };
