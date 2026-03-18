@@ -1,0 +1,26 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  lattice:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      REDIS_URL: redis://redis:6379
+      PUSH_SECRET: ${PUSH_SECRET:-dev-push-secret}
+    depends_on:
+      - redis
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    command: http lattice:3000
+    env_file:
+      - .env.local
+    ports:
+      - "4040:4040"
+    depends_on:
+      - lattice
