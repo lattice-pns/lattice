@@ -2,9 +2,9 @@
  * Example publisher script.
  *
  * Usage:
- *   bun run examples/publish.ts token <deviceToken> <body>
- *   bun run examples/publish.ts topic <topic>       <body>
- *   bun run examples/publish.ts send  <deviceToken> <body>
+ *   bun run examples/publish.ts token <pubkey> <body>
+ *   bun run examples/publish.ts topic <topic>  <body>
+ *   bun run examples/publish.ts send  <pubkey> <body>
  *
  * Examples:
  *   bun run examples/publish.ts token abc123 "Hello world"
@@ -20,9 +20,7 @@ const SERVER_URL = process.env.SERVER_URL ?? "http://localhost:3000";
 const [mode, target, body] = process.argv.slice(2);
 
 if (!mode || !target || !body) {
-  console.error(
-    "Usage: publish.ts <token|topic|send> <deviceToken|topic> <body>"
-  );
+  console.error("Usage: publish.ts <token|topic|send> <pubkey|topic> <body>");
   process.exit(1);
 }
 
@@ -61,7 +59,7 @@ if (mode === "send") {
   const timestamp = Math.floor(Date.now() / 1000);
   const signature = signRequest(privateKeyPem, bodyStr, timestamp);
 
-  console.log(`Sending as pubkey=${pubkeyHex} to device ${target}`);
+  console.log(`Sending as pubkey=${pubkeyHex} to ${target}`);
 
   const res = await fetch(`${SERVER_URL}/send`, {
     method: "POST",
