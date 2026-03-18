@@ -4,13 +4,22 @@
   "type": "module",
   "private": true,
   "devDependencies": {
-    "@types/bun": "latest"
+    "@eslint/js": "^10.0.1",
+    "@types/bun": "latest",
+    "eslint": "^10.0.3",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.8.1",
+    "typescript-eslint": "^8.57.1"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "scripts": {
-    "dev": "bun --hot run index.ts"
+    "dev": "bun --hot run index.ts",
+    "test": "bun test",
+    "lint": "eslint . && bunx tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "fastify": "^5.8.2"

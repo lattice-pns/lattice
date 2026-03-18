@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 
 import { registry } from "./src/registry";
 import { verifyEd25519 } from "./src/auth";
+import { formatSseFrame } from "./src/sse";
 import type {
   SseClient,
   SseEvent,
@@ -22,17 +23,9 @@ function makeBearer(secret: string) {
   ) {
     const auth = req.headers.authorization;
     if (!auth?.startsWith("Bearer ") || auth.slice(7) !== secret) {
-      reply.code(401).send({ error: "Unauthorized" });
+      return reply.code(401).send({ error: "Unauthorized" });
     }
   };
-}
-
-function formatSseFrame(event: SseEvent): string {
-  let frame = "";
-  if (event.id) frame += `id: ${event.id}\n`;
-  if (event.event) frame += `event: ${event.event}\n`;
-  frame += `data: ${event.data}\n\n`;
-  return frame;
 }
 
 // Health check
@@ -168,12 +161,14 @@ app.post<{ Body: PushTopicBody }>(
       },
     },
   },
-  async (req, reply) => {
+  async (req) => {
     const { topic, notification } = req.body;
     const recipients = await registry.pushToTopic(topic, notification);
     return { ok: true, recipients };
   }
 );
+
+export { app };
 
 const start = async () => {
   try {
@@ -184,4 +179,6 @@ const start = async () => {
   }
 };
 
-start();
+if (import.meta.main) {
+  start();
+}

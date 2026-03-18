@@ -16,7 +16,9 @@ const SERVER_URL = process.env.SERVER_URL ?? "http://localhost:3000";
 const [mode, target, title, body = ""] = process.argv.slice(2);
 
 if (!mode || !target || !title) {
-  console.error("Usage: publish.ts <token|topic> <deviceToken|topic> <title> [body]");
+  console.error(
+    "Usage: publish.ts <token|topic> <deviceToken|topic> <title> [body]"
+  );
   process.exit(1);
 }
 
@@ -36,7 +38,7 @@ const payload = {
 const res = await fetch(`${SERVER_URL}${endpoint}`, {
   method: "POST",
   headers: {
-    "Authorization": `Bearer ${PUSH_SECRET}`,
+    Authorization: `Bearer ${PUSH_SECRET}`,
     "Content-Type": "application/json",
   },
   body: JSON.stringify(payload),
