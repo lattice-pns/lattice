@@ -18,8 +18,8 @@ services:
     image: ngrok/ngrok:latest
     restart: unless-stopped
     command: http lattice:3000
-    env_file:
-      - .env.local
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     ports:
       - "4040:4040"
     depends_on:
