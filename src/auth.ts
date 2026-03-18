@@ -68,7 +68,7 @@ export async function verifyEd25519(
   const body =
     req.method === "GET" || req.method === "DELETE"
       ? ""
-      : JSON.stringify(req.body) ?? "";
+      : (JSON.stringify(req.body) ?? "");
   const payload = `${body};${timestamp}`;
 
   let cryptoKey: CryptoKey;
