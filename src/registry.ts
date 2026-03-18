@@ -1,45 +1,66 @@
+import { RedisClient } from "bun";
 import { randomUUID } from "crypto";
 
-import type { SseClient, NotificationPayload, SseEvent } from "./types";
+import type { SseClient, NotificationPayload } from "./types";
+
+const INSTANCE_ID = randomUUID();
+const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
+
+// Two separate connections: one for commands, one for pub/sub
+const redis = new RedisClient(REDIS_URL);
+const subscriber = await redis.duplicate();
 
 class Registry {
   private clientsByToken = new Map<string, SseClient>();
-  private clientsByTopic = new Map<string, Set<string>>();
 
-  register(client: SseClient): void {
+  async init() {
+    await subscriber.subscribe(
+      `push:instance:${INSTANCE_ID}`,
+      (message: string) => {
+        const { deviceToken, payload } = JSON.parse(message) as {
+          deviceToken: string;
+          payload: NotificationPayload;
+        };
+        this.deliverLocal(deviceToken, payload);
+      }
+    );
+  }
+
+  async register(client: SseClient) {
     const existing = this.clientsByToken.get(client.deviceToken);
     if (existing) {
       existing.disconnect();
     }
-
     this.clientsByToken.set(client.deviceToken, client);
 
+    const ops: Promise<unknown>[] = [
+      redis.set(`token:${client.deviceToken}:instance`, INSTANCE_ID),
+    ];
     for (const topic of client.topics) {
-      if (!this.clientsByTopic.has(topic)) {
-        this.clientsByTopic.set(topic, new Set());
-      }
-      this.clientsByTopic.get(topic)!.add(client.deviceToken);
+      ops.push(redis.sadd(`topic:${topic}`, client.deviceToken));
     }
+    await Promise.all(ops);
   }
 
-  deregister(deviceToken: string): void {
+  async deregister(deviceToken: string) {
     const client = this.clientsByToken.get(deviceToken);
-    if (!client) return;
-
     this.clientsByToken.delete(deviceToken);
 
-    for (const topic of client.topics) {
-      const subscribers = this.clientsByTopic.get(topic);
-      if (subscribers) {
-        subscribers.delete(deviceToken);
-        if (subscribers.size === 0) {
-          this.clientsByTopic.delete(topic);
-        }
+    const ops: Promise<unknown>[] = [
+      redis.del(`token:${deviceToken}:instance`),
+    ];
+    if (client) {
+      for (const topic of client.topics) {
+        ops.push(redis.srem(`topic:${topic}`, deviceToken));
       }
     }
+    await Promise.all(ops);
   }
 
-  pushToToken(deviceToken: string, payload: NotificationPayload): boolean {
+  private deliverLocal(
+    deviceToken: string,
+    payload: NotificationPayload
+  ): boolean {
     const client = this.clientsByToken.get(deviceToken);
     if (!client) return false;
 
@@ -51,25 +72,31 @@ class Registry {
     return true;
   }
 
-  pushToTopic(topic: string, payload: NotificationPayload): number {
-    const subscribers = this.clientsByTopic.get(topic);
-    if (!subscribers || subscribers.size === 0) return 0;
+  async pushToToken(
+    deviceToken: string,
+    payload: NotificationPayload
+  ): Promise<boolean> {
+    const instanceId = await redis.get(`token:${deviceToken}:instance`);
+    if (!instanceId) return false;
 
-    const event: SseEvent = {
-      id: randomUUID(),
-      event: "notification",
-      data: JSON.stringify(payload),
-    };
+    await redis.publish(
+      `push:instance:${instanceId}`,
+      JSON.stringify({ deviceToken, payload })
+    );
+    return true;
+  }
 
-    let count = 0;
-    for (const deviceToken of subscribers) {
-      const client = this.clientsByToken.get(deviceToken);
-      if (client) {
-        client.write(event);
-        count++;
-      }
-    }
-    return count;
+  async pushToTopic(
+    topic: string,
+    payload: NotificationPayload
+  ): Promise<number> {
+    const tokens = await redis.smembers(`topic:${topic}`);
+    if (tokens.length === 0) return 0;
+
+    const results = await Promise.all(
+      tokens.map((token) => this.pushToToken(token, payload))
+    );
+    return results.filter(Boolean).length;
   }
 
   connectionCount(): number {
@@ -78,3 +105,4 @@ class Registry {
 }
 
 export const registry = new Registry();
+await registry.init();

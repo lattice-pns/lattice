@@ -100,7 +100,7 @@ app.get<{ Querystring: SubscribeQuery }>(
       data: JSON.stringify({ deviceToken, topics: [...topics] }),
     });
 
-    registry.register(client);
+    await registry.register(client);
 
     req.raw.on("close", () => {
       clearInterval(heartbeatInterval);
@@ -136,7 +136,7 @@ app.post<{ Body: PushTokenBody }>(
   },
   async (req, reply) => {
     const { deviceToken, notification } = req.body;
-    const delivered = registry.pushToToken(deviceToken, notification);
+    const delivered = await registry.pushToToken(deviceToken, notification);
     if (!delivered) {
       return reply.code(404).send({ error: "Device not connected" });
     }
@@ -170,7 +170,7 @@ app.post<{ Body: PushTopicBody }>(
   },
   async (req, reply) => {
     const { topic, notification } = req.body;
-    const recipients = registry.pushToTopic(topic, notification);
+    const recipients = await registry.pushToTopic(topic, notification);
     return { ok: true, recipients };
   }
 );
