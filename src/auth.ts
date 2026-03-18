@@ -26,16 +26,14 @@ export async function verifyEd25519(
     typeof timestampStr !== "string" ||
     typeof signatureHex !== "string"
   ) {
-    reply
+    return reply
       .code(401)
       .send({ error: "Missing X-Agent-Pubkey, X-Timestamp, or X-Signature" });
-    return;
   }
 
   const timestamp = parseInt(timestampStr, 10);
   if (isNaN(timestamp) || Math.abs(Date.now() / 1000 - timestamp) > 30) {
-    reply.code(401).send({ error: "Invalid or expired timestamp" });
-    return;
+    return reply.code(401).send({ error: "Invalid or expired timestamp" });
   }
 
   let pubkeyBytes: Uint8Array<ArrayBuffer>;
@@ -56,13 +54,11 @@ export async function verifyEd25519(
       ) as ArrayBuffer
     );
   } catch {
-    reply.code(401).send({ error: "Invalid hex encoding" });
-    return;
+    return reply.code(401).send({ error: "Invalid hex encoding" });
   }
 
   if (pubkeyBytes.length !== 32 || sigBytes.length !== 64) {
-    reply.code(401).send({ error: "Invalid key or signature length" });
-    return;
+    return reply.code(401).send({ error: "Invalid key or signature length" });
   }
 
   const body =
@@ -81,8 +77,7 @@ export async function verifyEd25519(
       ["verify"]
     );
   } catch {
-    reply.code(401).send({ error: "Invalid public key" });
-    return;
+    return reply.code(401).send({ error: "Invalid public key" });
   }
 
   const valid = await crypto.subtle.verify(
@@ -93,7 +88,6 @@ export async function verifyEd25519(
   );
 
   if (!valid) {
-    reply.code(401).send({ error: "Invalid signature" });
-    return;
+    return reply.code(401).send({ error: "Invalid signature" });
   }
 }

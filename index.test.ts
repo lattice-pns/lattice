@@ -1,6 +1,30 @@
 import { test, expect } from "bun:test";
+import { generateKeyPairSync, sign } from "crypto";
 import { app } from "./index";
 import { registry } from "./src/registry";
+
+function generateEd25519Keys(): { pubkeyHex: string; privateKeyPem: string } {
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519", {
+    publicKeyEncoding: { type: "spki", format: "pem" },
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+  });
+  const spkiDer = Buffer.from(
+    publicKey.replace(/-----[^-]+-----/g, "").replace(/\s+/g, ""),
+    "base64"
+  );
+  const pubkeyHex = spkiDer.slice(-32).toString("hex");
+  return { pubkeyHex, privateKeyPem: privateKey };
+}
+
+function signPayload(
+  bodyStr: string,
+  timestamp: number,
+  privateKeyPem: string
+): string {
+  const payload = `${bodyStr};${timestamp}`;
+  const sig = sign(null, Buffer.from(payload), privateKeyPem);
+  return sig.toString("hex");
+}
 
 test("smoke", () => {
   expect(1).toBe(1);
@@ -21,7 +45,7 @@ test("POST /push/token returns 401 without auth", async () => {
     url: "/push/token",
     payload: {
       deviceToken: "abc",
-      notification: { title: "Hi", body: "Hello" },
+      notification: { body: "Hello" },
     },
   });
   expect(res.statusCode).toBe(401);
@@ -34,7 +58,7 @@ test("POST /push/token returns 401 with wrong Bearer", async () => {
     headers: { authorization: "Bearer wrong-secret" },
     payload: {
       deviceToken: "abc",
-      notification: { title: "Hi", body: "Hello" },
+      notification: { body: "Hello" },
     },
   });
   expect(res.statusCode).toBe(401);
@@ -57,7 +81,7 @@ test("POST /push/token returns 404 when device not connected", async () => {
     headers: { authorization: "Bearer dev-push-secret" },
     payload: {
       deviceToken: "nonexistent-device",
-      notification: { title: "Hi", body: "Hello" },
+      notification: { body: "Hello" },
     },
   });
   expect(res.statusCode).toBe(404);
@@ -82,7 +106,7 @@ test("POST /push/token returns 200 when device is connected", async () => {
       headers: { authorization: "Bearer dev-push-secret" },
       payload: {
         deviceToken,
-        notification: { title: "Hi", body: "Hello" },
+        notification: { body: "Hello" },
       },
     });
     expect(res.statusCode).toBe(200);
@@ -99,7 +123,7 @@ test("POST /push/topic returns 401 without auth", async () => {
     url: "/push/topic",
     payload: {
       topic: "news",
-      notification: { title: "Hi", body: "Hello" },
+      notification: { body: "Hello" },
     },
   });
   expect(res.statusCode).toBe(401);
@@ -134,7 +158,7 @@ test("POST /push/topic returns 200 when client subscribed to topic", async () =>
       headers: { authorization: "Bearer dev-push-secret" },
       payload: {
         topic,
-        notification: { title: "Hi", body: "Hello" },
+        notification: { body: "Hello" },
       },
     });
     expect(res.statusCode).toBe(200);
@@ -143,4 +167,96 @@ test("POST /push/topic returns 200 when client subscribed to topic", async () =>
     clearInterval(heartbeatInterval);
     await registry.deregister(deviceToken);
   }
+});
+
+test("POST /send returns 404 when device not connected", async () => {
+  const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
+  const payload = {
+    deviceToken: "nonexistent-device",
+    notification: { body: "Hello" },
+  };
+  const bodyStr = JSON.stringify(payload);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = signPayload(bodyStr, timestamp, privateKeyPem);
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/send",
+    headers: {
+      "X-Agent-Pubkey": pubkeyHex,
+      "X-Timestamp": String(timestamp),
+      "X-Signature": signature,
+      "Content-Type": "application/json",
+    },
+    payload: bodyStr,
+  });
+  expect(res.statusCode).toBe(404);
+  expect(res.json()).toMatchObject({ error: "Device not connected" });
+});
+
+test("POST /send returns 200 and injects from when device is connected", async () => {
+  const deviceToken = "test-device-" + Date.now();
+  const received: Array<{ id?: string; event?: string; data: unknown }> = [];
+  const heartbeatInterval = setInterval(() => {}, 999_999);
+  await registry.register({
+    deviceToken,
+    topics: new Set(),
+    write: (event) => {
+      received.push({
+        id: event.id,
+        event: event.event,
+        data: JSON.parse(event.data),
+      });
+    },
+    disconnect: () => {},
+    heartbeatInterval,
+  });
+
+  try {
+    const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
+    const payload = {
+      deviceToken,
+      notification: { body: "Hi from sender" },
+    };
+    const bodyStr = JSON.stringify(payload);
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = signPayload(bodyStr, timestamp, privateKeyPem);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/send",
+      headers: {
+        "X-Agent-Pubkey": pubkeyHex,
+        "X-Timestamp": String(timestamp),
+        "X-Signature": signature,
+        "Content-Type": "application/json",
+      },
+      payload: bodyStr,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true });
+
+    // Redis pub/sub is async; allow a moment for delivery
+    await new Promise((r) => setTimeout(r, 50));
+    const notification = received.find((r) => r.event === "notification");
+    expect(notification?.data).toMatchObject({
+      body: "Hi from sender",
+      from: pubkeyHex,
+    });
+  } finally {
+    clearInterval(heartbeatInterval);
+    await registry.deregister(deviceToken);
+  }
+});
+
+test("POST /send returns 401 without auth", async () => {
+  const res = await app.inject({
+    method: "POST",
+    url: "/send",
+    payload: {
+      deviceToken: "abc",
+      notification: { body: "Hello" },
+    },
+  });
+  expect(res.statusCode).toBe(401);
 });

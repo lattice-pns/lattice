@@ -1,7 +1,6 @@
 export interface NotificationPayload {
-  title: string;
   body: string;
-  data?: Record<string, unknown>;
+  from?: string; // sender's Ed25519 public key hex (optional)
 }
 
 export interface SseEvent {

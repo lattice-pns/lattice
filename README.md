@@ -64,7 +64,20 @@ Push a notification to a specific device. Requires `Authorization: Bearer <PUSH_
 ```json
 {
   "deviceToken": "<64-char-hex-pubkey>",
-  "notification": { "title": "Hello", "body": "World" }
+  "notification": { "body": "Hello world" }
+}
+```
+
+Optional `from` in the notification identifies the sender (pubkey hex). Returns `404` if the device is not connected.
+
+### `POST /send`
+
+Push to a specific device with **Ed25519 auth** (same headers as `/subscribe`). The server injects `from` from the verified `X-Agent-Pubkey` header automatically.
+
+```json
+{
+  "deviceToken": "<64-char-hex-pubkey>",
+  "notification": { "body": "Hi from sender" }
 }
 ```
 
@@ -77,7 +90,7 @@ Broadcast a notification to all subscribers of a topic. Requires `Authorization:
 ```json
 {
   "topic": "sports",
-  "notification": { "title": "Goal!", "body": "2-1" }
+  "notification": { "body": "Goal! 2-1" }
 }
 ```
 
@@ -88,8 +101,7 @@ Returns `{ "ok": true, "recipients": N }`.
 ```
 id: <uuid>
 event: notification
-data: {"title":"...","body":"...","data":{...}}
-
+data: {"body":"...","from":"<optional-sender-pubkey-hex>"}
 ```
 
 On connect, an initial `event: connected` frame is sent with the `deviceToken` (public key hex) and resolved topic list.
@@ -107,13 +119,19 @@ The subscriber prints its public key hex on connect — use that as the `deviceT
 **Push to device** (terminal 2):
 
 ```bash
-bun run examples/publish.ts token <pubkey-hex> "Hello" "World"
+bun run examples/publish.ts token <pubkey-hex> "Hello world"
+```
+
+**Send to device** (Ed25519 auth — generates ephemeral keypair, injects sender pubkey):
+
+```bash
+bun run examples/publish.ts send <pubkey-hex> "Hi from sender"
 ```
 
 **Broadcast to topic** (terminal 2):
 
 ```bash
-bun run examples/publish.ts topic sports "Goal!" "2-1"
+bun run examples/publish.ts topic sports "Goal! 2-1"
 ```
 
 The `publish.ts` script respects `PUSH_SECRET` and `SERVER_URL` env vars.

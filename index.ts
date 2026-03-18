@@ -103,6 +103,15 @@ app.get<{ Querystring: SubscribeQuery }>(
   }
 );
 
+const notificationSchema = {
+  type: "object",
+  required: ["body"],
+  properties: {
+    body: { type: "string" },
+    from: { type: "string" },
+  },
+};
+
 // Push to device token
 app.post<{ Body: PushTokenBody }>(
   "/push/token",
@@ -114,15 +123,7 @@ app.post<{ Body: PushTokenBody }>(
         required: ["deviceToken", "notification"],
         properties: {
           deviceToken: { type: "string" },
-          notification: {
-            type: "object",
-            required: ["title", "body"],
-            properties: {
-              title: { type: "string" },
-              body: { type: "string" },
-              data: { type: "object" },
-            },
-          },
+          notification: notificationSchema,
         },
       },
     },
@@ -130,6 +131,36 @@ app.post<{ Body: PushTokenBody }>(
   async (req, reply) => {
     const { deviceToken, notification } = req.body;
     const delivered = await registry.pushToToken(deviceToken, notification);
+    if (!delivered) {
+      return reply.code(404).send({ error: "Device not connected" });
+    }
+    return { ok: true };
+  }
+);
+
+// Send to device token (Ed25519 auth, server injects from)
+app.post<{ Body: PushTokenBody }>(
+  "/send",
+  {
+    preHandler: verifyEd25519,
+    schema: {
+      body: {
+        type: "object",
+        required: ["deviceToken", "notification"],
+        properties: {
+          deviceToken: { type: "string" },
+          notification: notificationSchema,
+        },
+      },
+    },
+  },
+  async (req, reply) => {
+    const { deviceToken, notification } = req.body;
+    const from = req.headers["x-agent-pubkey"] as string;
+    const delivered = await registry.pushToToken(deviceToken, {
+      ...notification,
+      from,
+    });
     if (!delivered) {
       return reply.code(404).send({ error: "Device not connected" });
     }
@@ -148,15 +179,7 @@ app.post<{ Body: PushTopicBody }>(
         required: ["topic", "notification"],
         properties: {
           topic: { type: "string" },
-          notification: {
-            type: "object",
-            required: ["title", "body"],
-            properties: {
-              title: { type: "string" },
-              body: { type: "string" },
-              data: { type: "object" },
-            },
-          },
+          notification: notificationSchema,
         },
       },
     },
