@@ -6,7 +6,7 @@ An APNs-inspired push notification server using Server-Sent Events (SSE). Client
 
 ```bash
 bun install
-cp .env.example .env
+cp .env.example .env.local
 ```
 
 ## Development
