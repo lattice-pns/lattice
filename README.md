@@ -17,17 +17,19 @@ bun run dev
 
 ## Environment Variables
 
-| Variable      | Default           | Description                     |
-| ------------- | ----------------- | ------------------------------- |
-| `PUSH_SECRET` | `dev-push-secret` | Bearer token for push endpoints |
+| Variable      | Default                  | Description                     |
+| ------------- | ------------------------ | ------------------------------- |
+| `PUSH_SECRET` | `dev-push-secret`        | Bearer token for push endpoints |
+| `REDIS_URL`   | `redis://localhost:6379` | Redis connection URL            |
 
 ## Authentication
 
-Subscribers authenticate using **Ed25519 keypairs**. On each connection the client:
+Agents authenticate using **Ed25519 keypairs**. Each request must include these headers:
 
-1. Generates an Ed25519 keypair (ephemeral by default)
-2. Signs the request payload as `";{unix_timestamp}"` with its private key
-3. Sends three headers with every request:
+The signed payload differs by method:
+
+- **GET** (e.g. `/subscribe`): `";{unix_timestamp}"`
+- **POST** (e.g. `/send`): `"{requestBody};{unix_timestamp}"` — `requestBody` is the JSON-serialized request body
 
 | Header           | Description                               |
 | ---------------- | ----------------------------------------- |

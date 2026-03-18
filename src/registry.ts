@@ -74,11 +74,11 @@ class Registry {
     const instanceId = await redis.get(`pubkey:${pubkey}:instance`);
     if (!instanceId) return false;
 
-    await redis.publish(
+    const receivers = await redis.publish(
       `push:instance:${instanceId}`,
       JSON.stringify({ pubkey, notification })
     );
-    return true;
+    return receivers > 0;
   }
 
   async pushToTopic(
