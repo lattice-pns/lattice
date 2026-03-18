@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 
 import { registry } from "./src/registry";
 import { verifyEd25519 } from "./src/auth";
-import { notificationSchema, sendNotificationSchema } from "./src/schemas";
+import { pushTokenSchema, pushTopicSchema, sendSchema } from "./src/schemas";
 import { formatSseFrame } from "./src/sse";
 import type {
   SseClient,
@@ -11,6 +11,7 @@ import type {
   SubscribeQuery,
   PushTokenBody,
   PushTopicBody,
+  SendBody,
 } from "./src/types";
 
 const PUSH_SECRET = process.env.PUSH_SECRET ?? "dev-push-secret";
@@ -34,13 +35,12 @@ app.get("/", async () => {
   return { status: "ok", connections: registry.connectionCount() };
 });
 
-// SSE subscribe
+// SSE subscribe — agents connect with Ed25519 auth; pubkey is their identity
 app.get<{ Querystring: SubscribeQuery }>(
   "/subscribe",
   { preHandler: verifyEd25519 },
   async (req, reply) => {
-    // The public key hex is the device token, already verified by verifyEd25519
-    const deviceToken = req.headers["x-agent-pubkey"] as string;
+    const pubkey = req.headers["x-agent-pubkey"] as string;
     const { topics: topicsStr } = req.query;
 
     const topics = topicsStr
@@ -81,7 +81,7 @@ app.get<{ Querystring: SubscribeQuery }>(
     }, 25_000);
 
     const client: SseClient = {
-      deviceToken,
+      pubkey,
       topics,
       write,
       disconnect,
@@ -91,95 +91,65 @@ app.get<{ Querystring: SubscribeQuery }>(
     write({
       id: randomUUID(),
       event: "connected",
-      data: JSON.stringify({ deviceToken, topics: [...topics] }),
+      data: JSON.stringify({ pubkey, topics: [...topics] }),
     });
 
     await registry.register(client);
 
     req.raw.on("close", () => {
       clearInterval(heartbeatInterval);
-      registry.deregister(deviceToken);
+      registry.deregister(pubkey);
       res.end();
     });
   }
 );
 
-// Push to device token
+// System push to a specific agent pubkey (bearer auth)
 app.post<{ Body: PushTokenBody }>(
   "/push/token",
   {
     preHandler: makeBearer(PUSH_SECRET),
-    schema: {
-      body: {
-        type: "object",
-        required: ["deviceToken", "notification"],
-        properties: {
-          deviceToken: { type: "string" },
-          notification: notificationSchema,
-        },
-      },
-    },
+    schema: { body: pushTokenSchema },
   },
   async (req, reply) => {
-    const { deviceToken, notification } = req.body;
-    const delivered = await registry.pushToToken(deviceToken, notification);
+    const { pubkey, body } = req.body;
+    const delivered = await registry.pushToToken(pubkey, { body });
     if (!delivered) {
-      return reply.code(404).send({ error: "Device not connected" });
+      return reply.code(404).send({ error: "Agent not connected" });
     }
     return { ok: true };
   }
 );
 
-// Send to device token (Ed25519 auth, server injects from)
-app.post<{ Body: PushTokenBody }>(
-  "/send",
-  {
-    preHandler: verifyEd25519,
-    schema: {
-      body: {
-        type: "object",
-        required: ["deviceToken", "notification"],
-        properties: {
-          deviceToken: { type: "string" },
-          notification: sendNotificationSchema,
-        },
-      },
-    },
-  },
-  async (req, reply) => {
-    const { deviceToken, notification } = req.body;
-    const from = req.headers["x-agent-pubkey"] as string;
-    const delivered = await registry.pushToToken(deviceToken, {
-      ...notification,
-      from,
-    });
-    if (!delivered) {
-      return reply.code(404).send({ error: "Device not connected" });
-    }
-    return { ok: true };
-  }
-);
-
-// Push to topic
+// System push to all agents subscribed to a topic (bearer auth)
 app.post<{ Body: PushTopicBody }>(
   "/push/topic",
   {
     preHandler: makeBearer(PUSH_SECRET),
-    schema: {
-      body: {
-        type: "object",
-        required: ["topic", "notification"],
-        properties: {
-          topic: { type: "string" },
-          notification: notificationSchema,
-        },
-      },
-    },
+    schema: { body: pushTopicSchema },
   },
   async (req) => {
-    const { topic, notification } = req.body;
-    const recipients = await registry.pushToTopic(topic, notification);
+    const { topic, body } = req.body;
+    const recipients = await registry.pushToTopic(topic, { body });
     return { ok: true, recipients };
+  }
+);
+
+// Agent-to-agent send — Ed25519 auth; `from` injected from verified pubkey
+app.post<{ Body: SendBody }>(
+  "/send",
+  {
+    preHandler: verifyEd25519,
+    schema: { body: sendSchema },
+  },
+  async (req, reply) => {
+    const { to, body } = req.body;
+    const from = req.headers["x-agent-pubkey"] as string;
+    const delivered = await registry.pushToToken(to, { from, body });
+    if (!delivered) {
+      return reply.code(404).send({ error: "Agent not connected" });
+    }
+    return { ok: true };
   }
 );
 

@@ -1,16 +1,31 @@
-export const notificationSchema = {
+// /push/token and /push/topic — body is always a plain string; no from field
+export const pushTokenSchema = {
   type: "object",
-  required: ["body"],
+  required: ["pubkey", "body"],
   properties: {
+    pubkey: { type: "string" },
     body: { type: "string" },
-    from: { type: "string" },
   },
+  additionalProperties: false,
 };
 
-/** /send only: notification has body. Server injects from from X-Agent-Pubkey. */
-export const sendNotificationSchema = {
+export const pushTopicSchema = {
   type: "object",
-  required: ["body"],
-  properties: { body: { type: "string" } },
+  required: ["topic", "body"],
+  properties: {
+    topic: { type: "string" },
+    body: { type: "string" },
+  },
+  additionalProperties: false,
+};
+
+// /send — agent-to-agent; server injects `from` from X-Agent-Pubkey
+export const sendSchema = {
+  type: "object",
+  required: ["to", "body"],
+  properties: {
+    to: { type: "string" },
+    body: { type: "string" },
+  },
   additionalProperties: false,
 };

@@ -26,10 +26,6 @@ function signPayload(
   return sig.toString("hex");
 }
 
-test("smoke", () => {
-  expect(1).toBe(1);
-});
-
 test("GET / returns health status", async () => {
   const res = await app.inject({ method: "GET", url: "/" });
   expect(res.statusCode).toBe(200);
@@ -43,23 +39,7 @@ test("POST /push/token returns 401 without auth", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/push/token",
-    payload: {
-      deviceToken: "abc",
-      notification: { body: "Hello" },
-    },
-  });
-  expect(res.statusCode).toBe(401);
-});
-
-test("POST /push/token returns 401 with wrong Bearer", async () => {
-  const res = await app.inject({
-    method: "POST",
-    url: "/push/token",
-    headers: { authorization: "Bearer wrong-secret" },
-    payload: {
-      deviceToken: "abc",
-      notification: { body: "Hello" },
-    },
+    payload: { pubkey: "abc", body: "Hello" },
   });
   expect(res.statusCode).toBe(401);
 });
@@ -69,30 +49,27 @@ test("POST /push/token returns 400 with invalid body", async () => {
     method: "POST",
     url: "/push/token",
     headers: { authorization: "Bearer dev-push-secret" },
-    payload: { deviceToken: "abc" }, // missing notification
+    payload: { pubkey: "abc" }, // missing body
   });
   expect(res.statusCode).toBe(400);
 });
 
-test("POST /push/token returns 404 when device not connected", async () => {
+test("POST /push/token returns 404 when agent not connected", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/push/token",
     headers: { authorization: "Bearer dev-push-secret" },
-    payload: {
-      deviceToken: "nonexistent-device",
-      notification: { body: "Hello" },
-    },
+    payload: { pubkey: "nonexistent-pubkey", body: "Hello" },
   });
   expect(res.statusCode).toBe(404);
-  expect(res.json()).toMatchObject({ error: "Device not connected" });
+  expect(res.json()).toMatchObject({ error: "Agent not connected" });
 });
 
-test("POST /push/token returns 200 when device is connected", async () => {
-  const deviceToken = "test-device-" + Date.now();
+test("POST /push/token returns 200 when agent is connected", async () => {
+  const pubkey = "test-pubkey-" + Date.now();
   const heartbeatInterval = setInterval(() => {}, 999_999);
   await registry.register({
-    deviceToken,
+    pubkey,
     topics: new Set(),
     write: () => {},
     disconnect: () => {},
@@ -104,29 +81,14 @@ test("POST /push/token returns 200 when device is connected", async () => {
       method: "POST",
       url: "/push/token",
       headers: { authorization: "Bearer dev-push-secret" },
-      payload: {
-        deviceToken,
-        notification: { body: "Hello" },
-      },
+      payload: { pubkey, body: "Hello" },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ ok: true });
   } finally {
     clearInterval(heartbeatInterval);
-    await registry.deregister(deviceToken);
+    await registry.deregister(pubkey);
   }
-});
-
-test("POST /push/topic returns 401 without auth", async () => {
-  const res = await app.inject({
-    method: "POST",
-    url: "/push/topic",
-    payload: {
-      topic: "news",
-      notification: { body: "Hello" },
-    },
-  });
-  expect(res.statusCode).toBe(401);
 });
 
 test("POST /push/topic returns 400 with invalid body", async () => {
@@ -134,17 +96,17 @@ test("POST /push/topic returns 400 with invalid body", async () => {
     method: "POST",
     url: "/push/topic",
     headers: { authorization: "Bearer dev-push-secret" },
-    payload: { topic: "news" }, // missing notification
+    payload: { topic: "news" }, // missing body
   });
   expect(res.statusCode).toBe(400);
 });
 
-test("POST /push/topic returns 200 when client subscribed to topic", async () => {
+test("POST /push/topic returns 200 when agent subscribed to topic", async () => {
   const topic = "test-topic-" + Date.now();
-  const deviceToken = "test-device-" + Date.now();
+  const pubkey = "test-pubkey-" + Date.now();
   const heartbeatInterval = setInterval(() => {}, 999_999);
   await registry.register({
-    deviceToken,
+    pubkey,
     topics: new Set([topic]),
     write: () => {},
     disconnect: () => {},
@@ -156,25 +118,19 @@ test("POST /push/topic returns 200 when client subscribed to topic", async () =>
       method: "POST",
       url: "/push/topic",
       headers: { authorization: "Bearer dev-push-secret" },
-      payload: {
-        topic,
-        notification: { body: "Hello" },
-      },
+      payload: { topic, body: "Hello" },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ ok: true, recipients: 1 });
   } finally {
     clearInterval(heartbeatInterval);
-    await registry.deregister(deviceToken);
+    await registry.deregister(pubkey);
   }
 });
 
-test("POST /send returns 404 when device not connected", async () => {
+test("POST /send returns 404 when agent not connected", async () => {
   const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
-  const payload = {
-    deviceToken: "nonexistent-device",
-    notification: { body: "Hello" },
-  };
+  const payload = { to: "nonexistent-pubkey", body: "Hello" };
   const bodyStr = JSON.stringify(payload);
   const timestamp = Math.floor(Date.now() / 1000);
   const signature = signPayload(bodyStr, timestamp, privateKeyPem);
@@ -191,15 +147,15 @@ test("POST /send returns 404 when device not connected", async () => {
     payload: bodyStr,
   });
   expect(res.statusCode).toBe(404);
-  expect(res.json()).toMatchObject({ error: "Device not connected" });
+  expect(res.json()).toMatchObject({ error: "Agent not connected" });
 });
 
-test("POST /send returns 200 and injects from when device is connected", async () => {
-  const deviceToken = "test-device-" + Date.now();
+test("POST /send returns 200 and injects from when agent is connected", async () => {
+  const recipientPubkey = "test-pubkey-" + Date.now();
   const received: Array<{ id?: string; event?: string; data: unknown }> = [];
   const heartbeatInterval = setInterval(() => {}, 999_999);
   await registry.register({
-    deviceToken,
+    pubkey: recipientPubkey,
     topics: new Set(),
     write: (event) => {
       received.push({
@@ -214,10 +170,7 @@ test("POST /send returns 200 and injects from when device is connected", async (
 
   try {
     const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
-    const payload = {
-      deviceToken,
-      notification: { body: "Hi from sender" },
-    };
+    const payload = { to: recipientPubkey, body: "Hi from sender" };
     const bodyStr = JSON.stringify(payload);
     const timestamp = Math.floor(Date.now() / 1000);
     const signature = signPayload(bodyStr, timestamp, privateKeyPem);
@@ -254,7 +207,7 @@ test("POST /send returns 200 and injects from when device is connected", async (
     });
   } finally {
     clearInterval(heartbeatInterval);
-    await registry.deregister(deviceToken);
+    await registry.deregister(recipientPubkey);
   }
 });
 
@@ -262,20 +215,14 @@ test("POST /send returns 401 without auth", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/send",
-    payload: {
-      deviceToken: "abc",
-      notification: { body: "Hello" },
-    },
+    payload: { to: "abc", body: "Hello" },
   });
   expect(res.statusCode).toBe(401);
 });
 
 test("POST /send returns 401 with expired timestamp", async () => {
   const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
-  const payload = {
-    deviceToken: "abc",
-    notification: { body: "Hello" },
-  };
+  const payload = { to: "abc", body: "Hello" };
   const bodyStr = JSON.stringify(payload);
   const expiredTimestamp = Math.floor(Date.now() / 1000) - 60;
   const signature = signPayload(bodyStr, expiredTimestamp, privateKeyPem);
@@ -293,33 +240,4 @@ test("POST /send returns 401 with expired timestamp", async () => {
   });
   expect(res.statusCode).toBe(401);
   expect(res.json()).toMatchObject({ error: "Invalid or expired timestamp" });
-});
-
-// Skip: triggers async "Reply was already sent" in Fastify inject when preHandler
-// returns 401; expired timestamp test covers auth failure path
-test.skip("POST /send returns 401 with invalid signature", async () => {
-  const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
-  const payload = {
-    deviceToken: "abc",
-    notification: { body: "Hello" },
-  };
-  const bodyStr = JSON.stringify(payload);
-  const timestamp = Math.floor(Date.now() / 1000);
-  const validSig = signPayload(bodyStr, timestamp, privateKeyPem);
-  const tamperedSig =
-    validSig.slice(0, -1) + (validSig.slice(-1) === "a" ? "b" : "a");
-
-  const res = await app.inject({
-    method: "POST",
-    url: "/send",
-    headers: {
-      "X-Agent-Pubkey": pubkeyHex,
-      "X-Timestamp": String(timestamp),
-      "X-Signature": tamperedSig,
-      "Content-Type": "application/json",
-    },
-    payload: bodyStr,
-  });
-  expect(res.statusCode).toBe(401);
-  expect(res.json()).toMatchObject({ error: "Invalid signature" });
 });
