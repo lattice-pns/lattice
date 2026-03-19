@@ -30,8 +30,8 @@ export async function verifyEd25519(
   }
 
   const timestamp = parseInt(timestampStr, 10);
-  if (isNaN(timestamp) || Math.abs(Date.now() / 1000 - timestamp) > 30) {
-    throw unauthorized("Invalid or expired timestamp");
+  if (isNaN(timestamp)) {
+    throw unauthorized("Invalid timestamp");
   }
 
   let pubkeyBytes: Uint8Array<ArrayBuffer>;
