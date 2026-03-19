@@ -180,7 +180,7 @@ test("POST /push/topic returns 200 when agent subscribed to topic", async () => 
   }
 });
 
-test("POST /send returns 404 when agent not connected", async () => {
+test("POST /send returns 202 when agent not connected (buffered)", async () => {
   const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
   const payload = { to: "nonexistent-pubkey", body: "Hello" };
   const bodyStr = JSON.stringify(payload);
@@ -198,8 +198,8 @@ test("POST /send returns 404 when agent not connected", async () => {
     },
     payload: bodyStr,
   });
-  expect(res.statusCode).toBe(404);
-  expect(res.json()).toMatchObject({ error: "Agent not connected" });
+  expect(res.statusCode).toBe(202);
+  expect(res.json()).toMatchObject({ ok: true, buffered: true });
 });
 
 test("POST /send returns 200 and injects from when agent is connected", async () => {
@@ -332,8 +332,8 @@ test("POST /send accepts old timestamp with valid signature", async () => {
     },
     payload: bodyStr,
   });
-  // Timestamp window is no longer enforced; valid sig passes auth → 404 (agent not connected)
-  expect(res.statusCode).toBe(404);
+  // Timestamp window is no longer enforced; valid sig passes auth → 202 (buffered)
+  expect(res.statusCode).toBe(202);
 });
 
 // --- SSE Last-Event-ID replay tests ---

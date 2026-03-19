@@ -77,7 +77,7 @@ Agent-to-agent message. Requires Ed25519 auth headers (same as `/subscribe`). Th
 { "to": "<64-char-hex-pubkey>", "body": "Hi from sender" }
 ```
 
-Returns `404` if the recipient agent is not connected.
+Returns `202` with `{ ok: true, buffered: true }` if the recipient agent is not connected (message is buffered for replay on reconnect).
 
 ### `POST /push/topic`
 
