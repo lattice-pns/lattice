@@ -139,9 +139,7 @@ app.post<{ Querystring: PushQuery }>(
     const body =
       typeof req.body === "string" ? req.body : JSON.stringify(req.body);
     const delivered = await registry.pushToToken(pubkey, { body });
-    if (!delivered) {
-      return reply.code(202).send({ ok: true, buffered: true });
-    }
+    if (!delivered) return reply.code(202).send({ ok: true, buffered: true });
     return { ok: true };
   }
 );
@@ -153,9 +151,7 @@ app.post<{ Body: PushTokenBody }>(
   async (req, reply) => {
     const { pubkey, body } = req.body;
     const delivered = await registry.pushToToken(pubkey, { body });
-    if (!delivered) {
-      return reply.code(202).send({ ok: true, buffered: true });
-    }
+    if (!delivered) return reply.code(202).send({ ok: true, buffered: true });
     return { ok: true };
   }
 );
@@ -185,9 +181,7 @@ app.post<{ Body: SendBody; Headers: { "x-agent-pubkey": string } }>(
     const { to, body } = req.body;
     const from = req.headers["x-agent-pubkey"]!; // present after verifyEd25519
     const delivered = await registry.pushToToken(to, { from, body });
-    if (!delivered) {
-      return reply.code(404).send({ error: "Agent not connected" });
-    }
+    if (!delivered) return reply.code(202).send({ ok: true, buffered: true });
     return { ok: true };
   }
 );
