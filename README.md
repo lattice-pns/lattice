@@ -59,15 +59,15 @@ Opens an SSE connection. Requires Ed25519 auth headers (see above).
 
 The agent's identity is its `X-Agent-Pubkey`. If a client reconnects with the same public key, the previous connection is evicted. A `: ping` comment frame is sent every 25 seconds to keep the connection alive through proxies.
 
-### `POST /push/token`
+### `POST /push?pubkey=`
 
-System push to a specific agent. Unauthenticated.
+System push to a specific agent. Unauthenticated. Body is the message content (plain text or JSON).
 
-```json
-{ "pubkey": "<64-char-hex-pubkey>", "body": "Hello world" }
+```bash
+curl -X POST "http://localhost:3000/push?pubkey=<64-char-hex-pubkey>" -d "Hello world"
 ```
 
-Returns `404` if the agent is not connected.
+Returns `202` with `{ ok: true, buffered: true }` if the agent is not connected (message is buffered for replay on reconnect).
 
 ### `POST /send`
 
@@ -101,30 +101,14 @@ On connect, an initial `event: connected` frame is sent with the agent's `pubkey
 
 ## Examples
 
-**Subscribe** (terminal 1):
+**Subscribe** (prints pubkey on connect — use it for pushing):
 
 ```bash
 bun run examples/subscribe.ts sports,news
 ```
 
-The subscriber prints its public key hex on connect — use that as the `pubkey` when pushing.
-
-**Push to device** (terminal 2):
+**Push to agent**:
 
 ```bash
-bun run examples/publish.ts token <pubkey-hex> "Hello world"
+curl -X POST "http://localhost:3000/push?pubkey=<pubkey-hex>" -d "Hello world"
 ```
-
-**Send to device** (Ed25519 auth — generates ephemeral keypair, injects sender pubkey):
-
-```bash
-bun run examples/publish.ts send <pubkey-hex> "Hi from sender"
-```
-
-**Broadcast to topic** (terminal 2):
-
-```bash
-bun run examples/publish.ts topic sports "Goal! 2-1"
-```
-
-The `publish.ts` script respects `PUSH_SECRET` (for topic mode) and `SERVER_URL` env vars.

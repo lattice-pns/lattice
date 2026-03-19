@@ -99,50 +99,6 @@ test("POST /push returns 200 when agent is connected", async () => {
   }
 });
 
-test("POST /push/token returns 400 with invalid body", async () => {
-  const res = await app.inject({
-    method: "POST",
-    url: "/push/token",
-    payload: { pubkey: "abc" }, // missing body
-  });
-  expect(res.statusCode).toBe(400);
-});
-
-test("POST /push/token returns 202 when agent not connected", async () => {
-  const res = await app.inject({
-    method: "POST",
-    url: "/push/token",
-    payload: { pubkey: "nonexistent-pubkey", body: "Hello" },
-  });
-  expect(res.statusCode).toBe(202);
-  expect(res.json()).toMatchObject({ ok: true, buffered: true });
-});
-
-test("POST /push/token returns 200 when agent is connected", async () => {
-  const pubkey = "test-pubkey-" + Date.now();
-  const heartbeatInterval = setInterval(() => {}, 999_999);
-  await registry.register({
-    pubkey,
-    topics: new Set(),
-    write: () => {},
-    disconnect: () => {},
-    heartbeatInterval,
-  });
-
-  try {
-    const res = await app.inject({
-      method: "POST",
-      url: "/push/token",
-      payload: { pubkey, body: "Hello" },
-    });
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ ok: true });
-  } finally {
-    clearInterval(heartbeatInterval);
-    await registry.deregister(pubkey);
-  }
-});
-
 test("POST /push/topic returns 400 with invalid body", async () => {
   const res = await app.inject({
     method: "POST",

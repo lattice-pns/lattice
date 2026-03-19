@@ -8,13 +8,11 @@ import { ulid } from "ulid";
 import { registry } from "./src/registry";
 import { verifyEd25519 } from "./src/auth";
 import {
-  PushTokenSchema,
   PushTopicSchema,
   SendSchema,
   PushQuerySchema,
   Ed25519HeadersSchema,
   type PushQuery,
-  type PushTokenBody,
   type PushTopicBody,
   type SendBody,
 } from "./src/schemas";
@@ -138,18 +136,6 @@ app.post<{ Querystring: PushQuery }>(
     const { pubkey } = req.query;
     const body =
       typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-    const delivered = await registry.pushToToken(pubkey, { body });
-    if (!delivered) return reply.code(202).send({ ok: true, buffered: true });
-    return { ok: true };
-  }
-);
-
-// System push to a specific agent pubkey (unauthenticated)
-app.post<{ Body: PushTokenBody }>(
-  "/push/token",
-  { schema: { body: PushTokenSchema } },
-  async (req, reply) => {
-    const { pubkey, body } = req.body;
     const delivered = await registry.pushToToken(pubkey, { body });
     if (!delivered) return reply.code(202).send({ ok: true, buffered: true });
     return { ok: true };
