@@ -117,7 +117,6 @@ app.get<{ Querystring: SubscribeQuery }>(
   }
 );
 
-// Authenticated push — Bearer token = target pubkey; body forwarded as string
 app.post("/push", async (req, reply) => {
   const auth = req.headers.authorization;
   if (!auth?.startsWith("Bearer ")) {
