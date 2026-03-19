@@ -7,16 +7,16 @@ import { randomUUID } from "crypto";
 
 import { registry } from "./src/registry";
 import { verifyEd25519 } from "./src/auth";
-import { pushTokenSchema, pushTopicSchema, sendSchema } from "./src/schemas";
+import {
+  PushTokenSchema,
+  PushTopicSchema,
+  SendSchema,
+  type PushTokenBody,
+  type PushTopicBody,
+  type SendBody,
+} from "./src/schemas";
 import { formatSseFrame } from "./src/sse";
-import type {
-  SseClient,
-  SseEvent,
-  SubscribeQuery,
-  PushTokenBody,
-  PushTopicBody,
-  SendBody,
-} from "./src/types";
+import type { SseClient, SseEvent, SubscribeQuery } from "./src/types";
 
 const PUSH_SECRET = process.env.PUSH_SECRET ?? "dev-push-secret";
 
@@ -134,7 +134,7 @@ app.post("/push", async (req, reply) => {
 // System push to a specific agent pubkey (unauthenticated)
 app.post<{ Body: PushTokenBody }>(
   "/push/token",
-  { schema: { body: pushTokenSchema } },
+  { schema: { body: PushTokenSchema } },
   async (req, reply) => {
     const { pubkey, body } = req.body;
     const delivered = await registry.pushToToken(pubkey, { body });
@@ -150,7 +150,7 @@ app.post<{ Body: PushTopicBody }>(
   "/push/topic",
   {
     preHandler: makeBearer(PUSH_SECRET),
-    schema: { body: pushTopicSchema },
+    schema: { body: PushTopicSchema },
   },
   async (req) => {
     const { topic, body } = req.body;
@@ -164,7 +164,7 @@ app.post<{ Body: SendBody }>(
   "/send",
   {
     preHandler: verifyEd25519,
-    schema: { body: sendSchema },
+    schema: { body: SendSchema },
   },
   async (req, reply) => {
     const { to, body } = req.body;

@@ -20,21 +20,3 @@ export interface SseClient {
 export interface SubscribeQuery {
   topics?: string;
 }
-
-// /push/token — system push to a specific agent pubkey
-export interface PushTokenBody {
-  pubkey: string;
-  body: string;
-}
-
-// /push/topic — system push to all agents subscribed to a topic
-export interface PushTopicBody {
-  topic: string;
-  body: string;
-}
-
-// /send — agent-to-agent message; `from` is injected by the server
-export interface SendBody {
-  to: string;
-  body: string;
-}
