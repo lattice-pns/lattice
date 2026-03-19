@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@sinclair/typebox": "^0.34.48",
-    "fastify": "^5.8.2"
+    "fastify": "^5.8.2",
+    "ulid": "^3.0.2"
   }
 }

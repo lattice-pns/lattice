@@ -1,5 +1,7 @@
+import { RedisClient } from "bun";
 import { test, expect } from "bun:test";
 import { generateKeyPairSync, sign } from "crypto";
+
 import { app } from "./index";
 import { registry } from "./src/registry";
 
@@ -332,4 +334,107 @@ test("POST /send accepts old timestamp with valid signature", async () => {
   });
   // Timestamp window is no longer enforced; valid sig passes auth → 404 (agent not connected)
   expect(res.statusCode).toBe(404);
+});
+
+// --- SSE Last-Event-ID replay tests ---
+
+test("push buffers event in Redis even when agent is offline", async () => {
+  const pubkey = "offline-pubkey-" + Date.now();
+  const redis = new RedisClient(
+    process.env.REDIS_URL ?? "redis://localhost:6379"
+  );
+
+  // No agent registered — push returns 404 but should buffer
+  const res = await app.inject({
+    method: "POST",
+    url: `/push?pubkey=${pubkey}`,
+    payload: "buffered-message",
+  });
+  expect(res.statusCode).toBe(404);
+
+  // Verify event is buffered
+  const entries = (await redis.zrangebyscore(
+    `events:buffer:${pubkey}`,
+    0,
+    "+inf"
+  )) as string[];
+  expect(entries.length).toBe(1);
+  const entry = JSON.parse(entries[0]!);
+  expect(entry.event).toBe("notification");
+  expect(JSON.parse(entry.data).body).toBe("buffered-message");
+
+  await redis.del(`events:buffer:${pubkey}`);
+  redis.close();
+});
+
+test("getEventsSince returns only events after the given ID", async () => {
+  const pubkey = "test-pubkey-since-" + Date.now();
+  const redis = new RedisClient(
+    process.env.REDIS_URL ?? "redis://localhost:6379"
+  );
+
+  // Push two events while offline
+  await app.inject({
+    method: "POST",
+    url: `/push?pubkey=${pubkey}`,
+    payload: "msg-1",
+  });
+  await app.inject({
+    method: "POST",
+    url: `/push?pubkey=${pubkey}`,
+    payload: "msg-2",
+  });
+
+  const entries = (await redis.zrangebyscore(
+    `events:buffer:${pubkey}`,
+    0,
+    "+inf"
+  )) as string[];
+  expect(entries.length).toBe(2);
+  const firstEventId = JSON.parse(entries[0]!).id as string;
+
+  // getEventsSince(firstEventId) → only msg-2
+  const missed = await registry.getEventsSince(pubkey, firstEventId);
+  expect(missed.length).toBe(1);
+  expect(JSON.parse(missed[0]!.data).body).toBe("msg-2");
+
+  await redis.del(`events:buffer:${pubkey}`);
+  redis.close();
+});
+
+test("getEventsSince with unknown ID returns all buffered events", async () => {
+  const pubkey = "test-pubkey-unknown-" + Date.now();
+  const redis = new RedisClient(
+    process.env.REDIS_URL ?? "redis://localhost:6379"
+  );
+
+  await app.inject({
+    method: "POST",
+    url: `/push?pubkey=${pubkey}`,
+    payload: "msg-A",
+  });
+  await app.inject({
+    method: "POST",
+    url: `/push?pubkey=${pubkey}`,
+    payload: "msg-B",
+  });
+
+  // Use a stale/unknown ULID (ts=0) that won't match any buffered event
+  const staleId = "00000000000000000000000000";
+  const all = await registry.getEventsSince(pubkey, staleId);
+  expect(all.length).toBe(2);
+  expect(JSON.parse(all[0]!.data).body).toBe("msg-A");
+  expect(JSON.parse(all[1]!.data).body).toBe("msg-B");
+
+  await redis.del(`events:buffer:${pubkey}`);
+  redis.close();
+});
+
+test("getEventsSince with no prior events returns empty array", async () => {
+  const pubkey = "test-pubkey-empty-" + Date.now();
+  const result = await registry.getEventsSince(
+    pubkey,
+    "00000000000000000000000000"
+  );
+  expect(result).toEqual([]);
 });

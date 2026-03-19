@@ -113,6 +113,14 @@ app.get<{ Querystring: SubscribeQuery; Headers: { "x-agent-pubkey": string } }>(
       data: JSON.stringify({ pubkey, topics: [...topics] }),
     });
 
+    const lastEventId = req.headers["last-event-id"] as string | undefined;
+    if (lastEventId) {
+      const missed = await registry.getEventsSince(pubkey, lastEventId);
+      for (const event of missed) {
+        write(event);
+      }
+    }
+
     await registry.register(client);
 
     req.raw.on("close", () => {
