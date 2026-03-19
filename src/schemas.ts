@@ -16,8 +16,12 @@ export const Ed25519PubkeySchema = Type.String({
 export type Ed25519Pubkey = Static<typeof Ed25519PubkeySchema>;
 
 // Headers for Ed25519-authenticated routes (optional so verifyEd25519 returns 401 when missing)
+// last-event-id: SSE reconnection; validated when present
 export const Ed25519HeadersSchema = Type.Object(
-  { "x-agent-pubkey": Type.Optional(Ed25519PubkeySchema) },
+  {
+    "x-agent-pubkey": Type.Optional(Ed25519PubkeySchema),
+    "last-event-id": Type.Optional(Type.String()),
+  },
   { additionalProperties: true }
 );
 

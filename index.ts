@@ -3,7 +3,7 @@ import Fastify, {
   type FastifyReply,
   type FastifyError,
 } from "fastify";
-import { randomUUID } from "crypto";
+import { ulid } from "ulid";
 
 import { registry } from "./src/registry";
 import { verifyEd25519 } from "./src/auth";
@@ -108,10 +108,18 @@ app.get<{ Querystring: SubscribeQuery; Headers: { "x-agent-pubkey": string } }>(
     };
 
     write({
-      id: randomUUID(),
+      id: ulid(),
       event: "connected",
       data: JSON.stringify({ pubkey, topics: [...topics] }),
     });
+
+    const lastEventId = req.headers["last-event-id"];
+    if (typeof lastEventId === "string") {
+      const missed = await registry.getEventsSince(pubkey, lastEventId);
+      for (const event of missed) {
+        write(event);
+      }
+    }
 
     await registry.register(client);
 
@@ -132,7 +140,7 @@ app.post<{ Querystring: PushQuery }>(
       typeof req.body === "string" ? req.body : JSON.stringify(req.body);
     const delivered = await registry.pushToToken(pubkey, { body });
     if (!delivered) {
-      return reply.code(404).send({ error: "Agent not connected" });
+      return reply.code(202).send({ ok: true, buffered: true });
     }
     return { ok: true };
   }
@@ -146,7 +154,7 @@ app.post<{ Body: PushTokenBody }>(
     const { pubkey, body } = req.body;
     const delivered = await registry.pushToToken(pubkey, { body });
     if (!delivered) {
-      return reply.code(404).send({ error: "Agent not connected" });
+      return reply.code(202).send({ ok: true, buffered: true });
     }
     return { ok: true };
   }
