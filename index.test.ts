@@ -37,19 +37,19 @@ test("GET / returns health status", async () => {
   expect(typeof body.connections).toBe("number");
 });
 
-test("POST /push returns 400 without pubkey query param", async () => {
+test("POST /push returns 404 without pubkey path param", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/push",
     payload: "Hello",
   });
-  expect(res.statusCode).toBe(400);
+  expect(res.statusCode).toBe(404);
 });
 
 test("POST /push returns 202 when agent not connected", async () => {
   const res = await app.inject({
     method: "POST",
-    url: "/push?pubkey=nonexistent-pubkey",
+    url: "/push/nonexistent-pubkey",
     payload: "Hello",
   });
   expect(res.statusCode).toBe(202);
@@ -73,7 +73,7 @@ test("POST /push returns 200 when agent is connected", async () => {
   try {
     const res = await app.inject({
       method: "POST",
-      url: `/push?pubkey=${pubkey}`,
+      url: `/push/${pubkey}`,
       payload: JSON.stringify({ foo: "bar" }),
     });
     expect(res.statusCode).toBe(200);
@@ -303,7 +303,7 @@ test("push buffers event in Redis even when agent is offline", async () => {
   // No agent registered — push returns 202 and buffers
   const res = await app.inject({
     method: "POST",
-    url: `/push?pubkey=${pubkey}`,
+    url: `/push/${pubkey}`,
     payload: "buffered-message",
   });
   expect(res.statusCode).toBe(202);
@@ -332,12 +332,12 @@ test("getEventsSince returns only events after the given ID", async () => {
   // Push two events while offline
   await app.inject({
     method: "POST",
-    url: `/push?pubkey=${pubkey}`,
+    url: `/push/${pubkey}`,
     payload: "msg-1",
   });
   await app.inject({
     method: "POST",
-    url: `/push?pubkey=${pubkey}`,
+    url: `/push/${pubkey}`,
     payload: "msg-2",
   });
 
@@ -366,12 +366,12 @@ test("getEventsSince with unknown ID returns all buffered events", async () => {
 
   await app.inject({
     method: "POST",
-    url: `/push?pubkey=${pubkey}`,
+    url: `/push/${pubkey}`,
     payload: "msg-A",
   });
   await app.inject({
     method: "POST",
-    url: `/push?pubkey=${pubkey}`,
+    url: `/push/${pubkey}`,
     payload: "msg-B",
   });
 

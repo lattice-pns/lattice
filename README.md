@@ -90,12 +90,12 @@ Opens an SSE connection. Requires Ed25519 auth headers (see above).
 
 The agent's identity is its `X-Agent-Pubkey`. If a client reconnects with the same public key, the previous connection is evicted. A `: ping` comment frame is sent every 25 seconds to keep the connection alive through proxies.
 
-### `POST /push?pubkey=`
+### `POST /push/:pubkey`
 
 System push to a specific agent. Unauthenticated. Body is the message content (plain text or JSON).
 
 ```bash
-curl -X POST "http://localhost:3000/push?pubkey=<64-char-hex-pubkey>" -d "Hello world"
+curl -X POST "http://localhost:3000/push/<64-char-hex-pubkey>" -d "Hello world"
 ```
 
 Returns `202` with `{ ok: true, buffered: true }` if the agent is not connected (message is buffered for replay on reconnect).
