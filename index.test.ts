@@ -231,24 +231,24 @@ test("POST /send returns 401 with invalid signature", async () => {
   expect(res.json()).toMatchObject({ error: "Invalid signature" });
 });
 
-test("POST /send returns 401 with expired timestamp", async () => {
+test("POST /send accepts old timestamp with valid signature", async () => {
   const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
-  const payload = { to: "abc", body: "Hello" };
+  const payload = { to: "nonexistent-abc", body: "Hello" };
   const bodyStr = JSON.stringify(payload);
-  const expiredTimestamp = Math.floor(Date.now() / 1000) - 60;
-  const signature = signPayload(bodyStr, expiredTimestamp, privateKeyPem);
+  const oldTimestamp = Math.floor(Date.now() / 1000) - 60;
+  const signature = signPayload(bodyStr, oldTimestamp, privateKeyPem);
 
   const res = await app.inject({
     method: "POST",
     url: "/send",
     headers: {
       "X-Agent-Pubkey": pubkeyHex,
-      "X-Timestamp": String(expiredTimestamp),
+      "X-Timestamp": String(oldTimestamp),
       "X-Signature": signature,
       "Content-Type": "application/json",
     },
     payload: bodyStr,
   });
-  expect(res.statusCode).toBe(401);
-  expect(res.json()).toMatchObject({ error: "Invalid or expired timestamp" });
+  // Timestamp window is no longer enforced; valid sig passes auth → 404 (agent not connected)
+  expect(res.statusCode).toBe(404);
 });
