@@ -128,9 +128,6 @@ app.post<{ Querystring: PushQuery }>(
   { schema: { querystring: PushQuerySchema } },
   async (req, reply) => {
     const { pubkey } = req.query;
-    if (!pubkey) {
-      return reply.code(401).send({ error: "Unauthorized" });
-    }
     const body =
       typeof req.body === "string" ? req.body : JSON.stringify(req.body);
     const delivered = await registry.pushToToken(pubkey, { body });

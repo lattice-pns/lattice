@@ -2,7 +2,7 @@ import { Type, type Static } from "@sinclair/typebox";
 
 // /push — query param for agent pubkey/token (legacy, unauthenticated)
 export const PushQuerySchema = Type.Object(
-  { pubkey: Type.Optional(Type.String()) },
+  { pubkey: Type.String() },
   { additionalProperties: true }
 );
 export type PushQuery = Static<typeof PushQuerySchema>;

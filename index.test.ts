@@ -35,14 +35,13 @@ test("GET / returns health status", async () => {
   expect(typeof body.connections).toBe("number");
 });
 
-test("POST /push returns 401 without pubkey query param", async () => {
+test("POST /push returns 400 without pubkey query param", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/push",
     payload: "Hello",
   });
-  expect(res.statusCode).toBe(401);
-  expect(res.json()).toMatchObject({ error: "Unauthorized" });
+  expect(res.statusCode).toBe(400);
 });
 
 test("POST /push returns 404 when agent not connected", async () => {
