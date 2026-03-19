@@ -1,18 +1,22 @@
-upstream {{ .APP }}-web {
-{{ if .APP_WEB_LISTENERS }}{{ range $upstream := split " " .APP_WEB_LISTENERS }}{{ if $upstream }}  server {{ $upstream }};
-{{ end }}{{ end }}{{ end }}  keepalive 32;
-}
+{{ range $port_map := .PROXY_PORT_MAP | split " " }}
+{{ $port_map_list := $port_map | split ":" }}
+{{ $scheme := index $port_map_list 0 }}
+{{ $listen_port := index $port_map_list 1 }}
+{{ $upstream_port := index $port_map_list 2 }}
 
+{{ if eq $scheme "http" }}
 server {
-  listen      [::]:{{ .PROXY_PORT }};
-  listen      {{ .PROXY_PORT }};
-  server_name {{ .NOSSL_SERVER_NAME }};
+  listen      [::]:{{ $listen_port }};
+  listen      {{ $listen_port }};
+  {{ if $.NOSSL_SERVER_NAME }}server_name {{ $.NOSSL_SERVER_NAME }};{{ end }}
 
-  {{ if .SSL_INUSE }}
-  return 301 https://$host$request_uri;
+  {{ if (and (eq $listen_port "80") ($.SSL_INUSE)) }}
+  location / {
+    return 301 https://$host$request_uri;
+  }
   {{ else }}
   location / {
-    proxy_pass  http://{{ .APP }}-web;
+    proxy_pass  http://{{ $.APP }}-{{ $upstream_port }};
     proxy_buffering            off;
     proxy_cache                off;
     proxy_read_timeout         3600s;
@@ -26,20 +30,19 @@ server {
   }
   {{ end }}
 }
-
-{{ if .SSL_INUSE }}
+{{ else if eq $scheme "https" }}
 server {
-  listen      [::]:{{ .PROXY_SSL_PORT }} ssl;
-  listen      {{ .PROXY_SSL_PORT }} ssl;
-  server_name {{ .SSL_SERVER_NAME }};
+  listen      [::]:{{ $listen_port }} ssl;
+  listen      {{ $listen_port }} ssl;
+  {{ if $.SSL_SERVER_NAME }}server_name {{ $.SSL_SERVER_NAME }};{{ end }}
 
-  ssl_certificate     {{ .APP_SSL_PATH }}/server.crt;
-  ssl_certificate_key {{ .APP_SSL_PATH }}/server.key;
+  ssl_certificate     {{ $.APP_SSL_PATH }}/server.crt;
+  ssl_certificate_key {{ $.APP_SSL_PATH }}/server.key;
   ssl_protocols       TLSv1.2 TLSv1.3;
-  ssl_prefer_server_ciphers on;
+  ssl_prefer_server_ciphers off;
 
   location / {
-    proxy_pass  http://{{ .APP }}-web;
+    proxy_pass  http://{{ $.APP }}-{{ $upstream_port }};
     proxy_buffering            off;
     proxy_cache                off;
     proxy_read_timeout         3600s;
@@ -52,4 +55,18 @@ server {
     proxy_set_header Connection        '';
   }
 }
+{{ end }}
+{{ end }}
+
+{{ if .DOKKU_APP_WEB_LISTENERS }}
+{{ range $upstream_port := .PROXY_UPSTREAM_PORTS | split " " }}
+upstream {{ $.APP }}-{{ $upstream_port }} {
+  keepalive 32;
+{{ range $listener := $.DOKKU_APP_WEB_LISTENERS | split " " }}
+{{ $listener_list := $listener | split ":" }}
+{{ $listener_ip := index $listener_list 0 }}
+  server {{ $listener_ip }}:{{ $upstream_port }};
+{{ end }}
+}
+{{ end }}
 {{ end }}
