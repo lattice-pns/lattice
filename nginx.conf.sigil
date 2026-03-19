@@ -1,6 +1,6 @@
 upstream {{ .APP }}-web {
-{{ range $upstream := .APP_WEB_LISTENERS }}  server {{ $upstream }};
-{{ end }}  keepalive 32;
+{{ range $upstream := split " " .APP_WEB_LISTENERS }}{{ if $upstream }}  server {{ $upstream }};
+{{ end }}{{ end }}  keepalive 32;
 }
 
 server {
