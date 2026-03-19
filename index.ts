@@ -7,16 +7,19 @@ import { randomUUID } from "crypto";
 
 import { registry } from "./src/registry";
 import { verifyEd25519 } from "./src/auth";
-import { pushTokenSchema, pushTopicSchema, sendSchema } from "./src/schemas";
+import {
+  PushTokenSchema,
+  PushTopicSchema,
+  SendSchema,
+  PushQuerySchema,
+  Ed25519HeadersSchema,
+  type PushQuery,
+  type PushTokenBody,
+  type PushTopicBody,
+  type SendBody,
+} from "./src/schemas";
 import { formatSseFrame } from "./src/sse";
-import type {
-  SseClient,
-  SseEvent,
-  SubscribeQuery,
-  PushTokenBody,
-  PushTopicBody,
-  SendBody,
-} from "./src/types";
+import type { SseClient, SseEvent, SubscribeQuery } from "./src/types";
 
 const PUSH_SECRET = process.env.PUSH_SECRET ?? "dev-push-secret";
 
@@ -49,11 +52,14 @@ app.get("/", async () => {
 });
 
 // SSE subscribe — agents connect with Ed25519 auth; pubkey is their identity
-app.get<{ Querystring: SubscribeQuery }>(
+app.get<{ Querystring: SubscribeQuery; Headers: { "x-agent-pubkey": string } }>(
   "/subscribe",
-  { preHandler: verifyEd25519 },
+  {
+    preHandler: verifyEd25519,
+    schema: { headers: Ed25519HeadersSchema },
+  },
   async (req, reply) => {
-    const pubkey = req.headers["x-agent-pubkey"] as string;
+    const pubkey = req.headers["x-agent-pubkey"]!; // present after verifyEd25519
     const { topics: topicsStr } = req.query;
 
     const topics = topicsStr
@@ -117,25 +123,25 @@ app.get<{ Querystring: SubscribeQuery }>(
   }
 );
 
-app.post("/push", async (req, reply) => {
-  const auth = req.headers.authorization;
-  if (!auth?.startsWith("Bearer ")) {
-    return reply.code(401).send({ error: "Unauthorized" });
+app.post<{ Querystring: PushQuery }>(
+  "/push",
+  { schema: { querystring: PushQuerySchema } },
+  async (req, reply) => {
+    const { pubkey } = req.query;
+    const body =
+      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+    const delivered = await registry.pushToToken(pubkey, { body });
+    if (!delivered) {
+      return reply.code(404).send({ error: "Agent not connected" });
+    }
+    return { ok: true };
   }
-  const pubkey = auth.slice(7);
-  const body =
-    typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-  const delivered = await registry.pushToToken(pubkey, { body });
-  if (!delivered) {
-    return reply.code(404).send({ error: "Agent not connected" });
-  }
-  return { ok: true };
-});
+);
 
 // System push to a specific agent pubkey (unauthenticated)
 app.post<{ Body: PushTokenBody }>(
   "/push/token",
-  { schema: { body: pushTokenSchema } },
+  { schema: { body: PushTokenSchema } },
   async (req, reply) => {
     const { pubkey, body } = req.body;
     const delivered = await registry.pushToToken(pubkey, { body });
@@ -151,7 +157,7 @@ app.post<{ Body: PushTopicBody }>(
   "/push/topic",
   {
     preHandler: makeBearer(PUSH_SECRET),
-    schema: { body: pushTopicSchema },
+    schema: { body: PushTopicSchema },
   },
   async (req) => {
     const { topic, body } = req.body;
@@ -161,15 +167,15 @@ app.post<{ Body: PushTopicBody }>(
 );
 
 // Agent-to-agent send — Ed25519 auth; `from` injected from verified pubkey
-app.post<{ Body: SendBody }>(
+app.post<{ Body: SendBody; Headers: { "x-agent-pubkey": string } }>(
   "/send",
   {
     preHandler: verifyEd25519,
-    schema: { body: sendSchema },
+    schema: { body: SendSchema, headers: Ed25519HeadersSchema },
   },
   async (req, reply) => {
     const { to, body } = req.body;
-    const from = req.headers["x-agent-pubkey"] as string;
+    const from = req.headers["x-agent-pubkey"]!; // present after verifyEd25519
     const delivered = await registry.pushToToken(to, { from, body });
     if (!delivered) {
       return reply.code(404).send({ error: "Agent not connected" });

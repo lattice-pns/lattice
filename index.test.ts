@@ -35,21 +35,19 @@ test("GET / returns health status", async () => {
   expect(typeof body.connections).toBe("number");
 });
 
-test("POST /push returns 401 without Authorization header", async () => {
+test("POST /push returns 400 without pubkey query param", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/push",
     payload: "Hello",
   });
-  expect(res.statusCode).toBe(401);
-  expect(res.json()).toMatchObject({ error: "Unauthorized" });
+  expect(res.statusCode).toBe(400);
 });
 
 test("POST /push returns 404 when agent not connected", async () => {
   const res = await app.inject({
     method: "POST",
-    url: "/push",
-    headers: { authorization: "Bearer nonexistent-pubkey" },
+    url: "/push?pubkey=nonexistent-pubkey",
     payload: "Hello",
   });
   expect(res.statusCode).toBe(404);
@@ -73,8 +71,7 @@ test("POST /push returns 200 when agent is connected", async () => {
   try {
     const res = await app.inject({
       method: "POST",
-      url: "/push",
-      headers: { authorization: `Bearer ${pubkey}` },
+      url: `/push?pubkey=${pubkey}`,
       payload: JSON.stringify({ foo: "bar" }),
     });
     expect(res.statusCode).toBe(200);
@@ -271,6 +268,25 @@ test("POST /send returns 401 without auth", async () => {
     payload: { to: "abc", body: "Hello" },
   });
   expect(res.statusCode).toBe(401);
+});
+
+test("POST /send returns 400 with invalid pubkey format", async () => {
+  const payload = { to: "abc", body: "Hello" };
+  const bodyStr = JSON.stringify(payload);
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/send",
+    headers: {
+      "X-Agent-Pubkey": "not-64-hex-chars",
+      "X-Timestamp": String(timestamp),
+      "X-Signature": "0".repeat(128),
+      "Content-Type": "application/json",
+    },
+    payload: bodyStr,
+  });
+  expect(res.statusCode).toBe(400);
 });
 
 test("POST /send returns 401 with invalid signature", async () => {
