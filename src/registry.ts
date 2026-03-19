@@ -2,9 +2,9 @@ import { RedisClient } from "bun";
 import { randomUUID } from "crypto";
 import { monotonicFactory, decodeTime } from "ulid";
 
-const ulid = monotonicFactory();
-
 import type { SseClient, SseEvent, Notification } from "./types";
+
+const ulid = monotonicFactory();
 
 const INSTANCE_ID = randomUUID();
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
