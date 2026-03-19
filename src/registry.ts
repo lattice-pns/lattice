@@ -112,7 +112,7 @@ class Registry {
     if (!client) return false;
 
     client.write({
-      id: eventId ?? randomUUID(),
+      id: eventId,
       event: "notification",
       data: JSON.stringify(notification),
     });
