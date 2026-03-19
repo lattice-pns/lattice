@@ -120,14 +120,14 @@ if [[ -z "$PUSH_SECRET" ]]; then
   fi
 fi
 
-ssh "$HOST" "dokku config:set --no-restart $APP PUSH_SECRET=$PUSH_SECRET"
+ssh "$HOST" "dokku config:set --no-restart $APP PUSH_SECRET='$PUSH_SECRET'"
 
 # ---------------------------------------------------------------------------
 # Domain
 # ---------------------------------------------------------------------------
 if [[ -n "$DOMAIN" ]]; then
   echo "==> Setting domain to '$DOMAIN'..."
-  ssh "$HOST" "dokku domains:set $APP $DOMAIN"
+  ssh "$HOST" "dokku domains:set --no-restart $APP $DOMAIN 2>/dev/null || dokku domains:set $APP $DOMAIN"
 fi
 
 # ---------------------------------------------------------------------------
@@ -135,7 +135,6 @@ fi
 # ---------------------------------------------------------------------------
 echo "==> Deploying to Dokku..."
 
-DOKKU_REMOTE="dokku@$HOST:$APP"
 # Strip the user@ prefix to get just the host for the git remote URL
 DOKKU_HOST="${HOST#*@}"
 DOKKU_REMOTE="dokku@${DOKKU_HOST}:${APP}"
@@ -148,7 +147,8 @@ else
   echo "    Added 'dokku' remote."
 fi
 
-git push dokku HEAD:main
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+git push dokku "${CURRENT_BRANCH}:main"
 
 # ---------------------------------------------------------------------------
 # Scale
