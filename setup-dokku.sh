@@ -123,7 +123,7 @@ ssh "$HOST" "dokku config:set --no-restart $APP PUSH_SECRET='$PUSH_SECRET'"
 # ---------------------------------------------------------------------------
 if [[ -n "$DOMAIN" ]]; then
   echo "==> Setting domain to '$DOMAIN'..."
-  ssh "$HOST" "dokku domains:set --no-restart $APP $DOMAIN 2>/dev/null || dokku domains:set --no-restart $APP $DOMAIN"
+  ssh "$HOST" "dokku domains:set --no-restart $APP $DOMAIN"
 fi
 
 # ---------------------------------------------------------------------------
@@ -192,6 +192,6 @@ echo "      curl -N -H 'Accept: text/event-stream' $BASE_URL/sse/<agent-id>"
 echo ""
 echo "    Push test:"
 echo "      curl -X POST $BASE_URL/push/<agent-id> \\"
-echo "        -H 'Authorization: Bearer $PUSH_SECRET' \\"
+echo "        -H 'Authorization: Bearer <your-push-secret>' \\"
 echo "        -H 'Content-Type: application/json' \\"
 echo "        -d '{\"message\": \"hello\"}'"
