@@ -118,7 +118,7 @@ app.get<{ Querystring: SubscribeQuery }>(
 );
 
 app.post("/push", async (req, reply) => {
-  const { secret: pubkey } = req.query as { secret?: string };
+  const { pubkey } = req.query as { pubkey?: string };
   if (!pubkey) {
     return reply.code(401).send({ error: "Unauthorized" });
   }
