@@ -84,6 +84,12 @@ echo "==> Creating app '$APP' (if it doesn't exist)..."
 ssh "$HOST" "dokku apps:create $APP 2>/dev/null || true"
 
 # ---------------------------------------------------------------------------
+# Port mapping (ensure nginx listens on 80, not the container port)
+# ---------------------------------------------------------------------------
+echo "==> Setting port mapping (http:80:3000)..."
+ssh "$HOST" "dokku ports:set $APP http:80:3000 2>/dev/null || dokku proxy:ports-set $APP http:80:3000"
+
+# ---------------------------------------------------------------------------
 # Redis
 # ---------------------------------------------------------------------------
 echo "==> Setting up Redis..."
@@ -164,7 +170,7 @@ if $HTTPS; then
     ssh "$HOST" "sudo dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git"
   fi
 
-  ssh "$HOST" "dokku config:set --no-restart $APP DOKKU_LETSENCRYPT_EMAIL=$EMAIL"
+  ssh "$HOST" "dokku letsencrypt:set $APP email $EMAIL"
   ssh "$HOST" "dokku letsencrypt:enable $APP"
   echo "    HTTPS enabled."
 fi

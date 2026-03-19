@@ -10,6 +10,7 @@ server {
   listen      {{ $listen_port }};
   {{ if $.NOSSL_SERVER_NAME }}server_name {{ $.NOSSL_SERVER_NAME }};{{ end }}
 
+  include {{ $.DOKKU_ROOT }}/{{ $.APP }}/nginx.conf.d/*.conf;
   {{ if (and (eq $listen_port "80") ($.SSL_INUSE)) }}
   location / {
     return 301 https://$host$request_uri;
