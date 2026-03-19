@@ -271,6 +271,25 @@ test("POST /send returns 401 without auth", async () => {
   expect(res.statusCode).toBe(401);
 });
 
+test("POST /send returns 400 with invalid pubkey format", async () => {
+  const payload = { to: "abc", body: "Hello" };
+  const bodyStr = JSON.stringify(payload);
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/send",
+    headers: {
+      "X-Agent-Pubkey": "not-64-hex-chars",
+      "X-Timestamp": String(timestamp),
+      "X-Signature": "0".repeat(128),
+      "Content-Type": "application/json",
+    },
+    payload: bodyStr,
+  });
+  expect(res.statusCode).toBe(400);
+});
+
 test("POST /send returns 401 with invalid signature", async () => {
   const { pubkeyHex } = generateEd25519Keys();
   const { privateKeyPem: otherKey } = generateEd25519Keys(); // wrong key
