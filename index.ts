@@ -3,7 +3,7 @@ import Fastify, {
   type FastifyReply,
   type FastifyError,
 } from "fastify";
-import { randomUUID } from "crypto";
+import { ulid } from "ulid";
 
 import { registry } from "./src/registry";
 import { verifyEd25519 } from "./src/auth";
@@ -108,7 +108,7 @@ app.get<{ Querystring: SubscribeQuery; Headers: { "x-agent-pubkey": string } }>(
     };
 
     write({
-      id: randomUUID(),
+      id: ulid(),
       event: "connected",
       data: JSON.stringify({ pubkey, topics: [...topics] }),
     });
