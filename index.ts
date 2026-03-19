@@ -107,6 +107,8 @@ app.get<{ Querystring: SubscribeQuery; Headers: { "x-agent-pubkey": string } }>(
       heartbeatInterval,
     };
 
+    await registry.register(client);
+
     write({
       id: ulid(),
       event: "connected",
@@ -120,8 +122,6 @@ app.get<{ Querystring: SubscribeQuery; Headers: { "x-agent-pubkey": string } }>(
         write(event);
       }
     }
-
-    await registry.register(client);
 
     req.raw.on("close", () => {
       clearInterval(heartbeatInterval);
