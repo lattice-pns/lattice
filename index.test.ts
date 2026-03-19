@@ -46,14 +46,14 @@ test("POST /push returns 400 without pubkey query param", async () => {
   expect(res.statusCode).toBe(400);
 });
 
-test("POST /push returns 404 when agent not connected", async () => {
+test("POST /push returns 202 when agent not connected", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/push?pubkey=nonexistent-pubkey",
     payload: "Hello",
   });
-  expect(res.statusCode).toBe(404);
-  expect(res.json()).toMatchObject({ error: "Agent not connected" });
+  expect(res.statusCode).toBe(202);
+  expect(res.json()).toMatchObject({ ok: true, buffered: true });
 });
 
 test("POST /push returns 200 when agent is connected", async () => {
@@ -108,14 +108,14 @@ test("POST /push/token returns 400 with invalid body", async () => {
   expect(res.statusCode).toBe(400);
 });
 
-test("POST /push/token returns 404 when agent not connected", async () => {
+test("POST /push/token returns 202 when agent not connected", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/push/token",
     payload: { pubkey: "nonexistent-pubkey", body: "Hello" },
   });
-  expect(res.statusCode).toBe(404);
-  expect(res.json()).toMatchObject({ error: "Agent not connected" });
+  expect(res.statusCode).toBe(202);
+  expect(res.json()).toMatchObject({ ok: true, buffered: true });
 });
 
 test("POST /push/token returns 200 when agent is connected", async () => {
@@ -344,13 +344,13 @@ test("push buffers event in Redis even when agent is offline", async () => {
     process.env.REDIS_URL ?? "redis://localhost:6379"
   );
 
-  // No agent registered — push returns 404 but should buffer
+  // No agent registered — push returns 202 and buffers
   const res = await app.inject({
     method: "POST",
     url: `/push?pubkey=${pubkey}`,
     payload: "buffered-message",
   });
-  expect(res.statusCode).toBe(404);
+  expect(res.statusCode).toBe(202);
 
   // Verify event is buffered
   const entries = (await redis.zrangebyscore(

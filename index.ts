@@ -140,7 +140,7 @@ app.post<{ Querystring: PushQuery }>(
       typeof req.body === "string" ? req.body : JSON.stringify(req.body);
     const delivered = await registry.pushToToken(pubkey, { body });
     if (!delivered) {
-      return reply.code(404).send({ error: "Agent not connected" });
+      return reply.code(202).send({ ok: true, buffered: true });
     }
     return { ok: true };
   }
@@ -154,7 +154,7 @@ app.post<{ Body: PushTokenBody }>(
     const { pubkey, body } = req.body;
     const delivered = await registry.pushToToken(pubkey, { body });
     if (!delivered) {
-      return reply.code(404).send({ error: "Agent not connected" });
+      return reply.code(202).send({ ok: true, buffered: true });
     }
     return { ok: true };
   }
