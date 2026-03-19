@@ -1,12 +1,11 @@
-{{ range $upstream := .APP_WEB_LISTENERS }}upstream {{ $.APP }}-web {
-  server {{ $upstream }};
-  keepalive 32;
+upstream {{ .APP }}-web {
+{{ range $upstream := .APP_WEB_LISTENERS }}  server {{ $upstream }};
+{{ end }}  keepalive 32;
 }
-{{ end }}
 
 server {
-  listen      [::]:{{ .NGINX_PORT }};
-  listen      {{ .NGINX_PORT }};
+  listen      [::]:{{ .PROXY_PORT }};
+  listen      {{ .PROXY_PORT }};
   server_name {{ .NOSSL_SERVER_NAME }};
 
   {{ if .SSL_INUSE }}
@@ -30,8 +29,8 @@ server {
 
 {{ if .SSL_INUSE }}
 server {
-  listen      [::]:{{ .NGINX_SSL_PORT }} ssl;
-  listen      {{ .NGINX_SSL_PORT }} ssl;
+  listen      [::]:{{ .PROXY_SSL_PORT }} ssl;
+  listen      {{ .PROXY_SSL_PORT }} ssl;
   server_name {{ .SSL_SERVER_NAME }};
 
   ssl_certificate     {{ .APP_SSL_PATH }}/server.crt;
