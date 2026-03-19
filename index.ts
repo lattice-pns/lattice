@@ -118,11 +118,10 @@ app.get<{ Querystring: SubscribeQuery }>(
 );
 
 app.post("/push", async (req, reply) => {
-  const auth = req.headers.authorization;
-  if (!auth?.startsWith("Bearer ")) {
+  const { secret: pubkey } = req.query as { secret?: string };
+  if (!pubkey) {
     return reply.code(401).send({ error: "Unauthorized" });
   }
-  const pubkey = auth.slice(7);
   const body =
     typeof req.body === "string" ? req.body : JSON.stringify(req.body);
   const delivered = await registry.pushToToken(pubkey, { body });

@@ -35,7 +35,7 @@ test("GET / returns health status", async () => {
   expect(typeof body.connections).toBe("number");
 });
 
-test("POST /push returns 401 without Authorization header", async () => {
+test("POST /push returns 401 without secret query param", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/push",
@@ -48,8 +48,7 @@ test("POST /push returns 401 without Authorization header", async () => {
 test("POST /push returns 404 when agent not connected", async () => {
   const res = await app.inject({
     method: "POST",
-    url: "/push",
-    headers: { authorization: "Bearer nonexistent-pubkey" },
+    url: "/push?secret=nonexistent-pubkey",
     payload: "Hello",
   });
   expect(res.statusCode).toBe(404);
@@ -73,8 +72,7 @@ test("POST /push returns 200 when agent is connected", async () => {
   try {
     const res = await app.inject({
       method: "POST",
-      url: "/push",
-      headers: { authorization: `Bearer ${pubkey}` },
+      url: `/push?secret=${pubkey}`,
       payload: JSON.stringify({ foo: "bar" }),
     });
     expect(res.statusCode).toBe(200);
