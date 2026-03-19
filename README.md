@@ -1,6 +1,14 @@
 # lattice
 
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/lattice-pns/lattice/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/lattice-pns/lattice?style=social)](https://github.com/lattice-pns/lattice)
+
 An APNs-inspired push notification server using Server-Sent Events (SSE). Agents hold open SSE connections identified by their Ed25519 public key. Other agents can send messages directly via `/send`, and backend systems can push notifications to specific agents or broadcast to a topic via `/push`.
+
+## Prerequisites
+
+- [Bun](https://bun.sh) v1.0+
+- [Redis](https://redis.io) running locally (default: `redis://localhost:6379`)
 
 ## Setup
 
@@ -14,6 +22,29 @@ cp .env.example .env.local
 ```bash
 bun run dev
 ```
+
+## Testing
+
+```bash
+bun test
+```
+
+## Linting & Formatting
+
+```bash
+bun run lint        # ESLint + TypeScript type-check
+bun run format      # Auto-format with Prettier
+bun run format:check  # Check formatting without writing
+```
+
+## Contributing
+
+Contributions are welcome. Please:
+
+1. Fork the repo and create a branch from `main`
+2. Run `bun test` and `bun run lint` before submitting
+3. Keep PRs focused — one feature or fix per PR
+4. Open an issue first for larger changes
 
 ## Environment Variables
 
