@@ -35,6 +35,71 @@ test("GET / returns health status", async () => {
   expect(typeof body.connections).toBe("number");
 });
 
+test("POST /push returns 401 without Authorization header", async () => {
+  const res = await app.inject({
+    method: "POST",
+    url: "/push",
+    payload: "Hello",
+  });
+  expect(res.statusCode).toBe(401);
+  expect(res.json()).toMatchObject({ error: "Unauthorized" });
+});
+
+test("POST /push returns 404 when agent not connected", async () => {
+  const res = await app.inject({
+    method: "POST",
+    url: "/push",
+    headers: { authorization: "Bearer nonexistent-pubkey" },
+    payload: "Hello",
+  });
+  expect(res.statusCode).toBe(404);
+  expect(res.json()).toMatchObject({ error: "Agent not connected" });
+});
+
+test("POST /push returns 200 when agent is connected", async () => {
+  const pubkey = "test-pubkey-" + Date.now();
+  const received: Array<{ event?: string; data: unknown }> = [];
+  const heartbeatInterval = setInterval(() => {}, 999_999);
+  await registry.register({
+    pubkey,
+    topics: new Set(),
+    write: (event) => {
+      received.push({ event: event.event, data: JSON.parse(event.data) });
+    },
+    disconnect: () => {},
+    heartbeatInterval,
+  });
+
+  try {
+    const res = await app.inject({
+      method: "POST",
+      url: "/push",
+      headers: { authorization: `Bearer ${pubkey}` },
+      payload: JSON.stringify({ foo: "bar" }),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true });
+
+    const maxWait = 500;
+    const pollInterval = 10;
+    let notification = received.find((r) => r.event === "notification");
+    for (
+      let waited = 0;
+      !notification && waited < maxWait;
+      waited += pollInterval
+    ) {
+      await new Promise((r) => setTimeout(r, pollInterval));
+      notification = received.find((r) => r.event === "notification");
+    }
+    expect((notification?.data as { body?: string }).body).toBe(
+      '{"foo":"bar"}'
+    );
+  } finally {
+    clearInterval(heartbeatInterval);
+    await registry.deregister(pubkey);
+  }
+});
+
 test("POST /push/token returns 400 with invalid body", async () => {
   const res = await app.inject({
     method: "POST",

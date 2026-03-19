@@ -22,6 +22,11 @@ const PUSH_SECRET = process.env.PUSH_SECRET ?? "dev-push-secret";
 
 const app = Fastify({ logger: true });
 
+// Catch-all: unhandled content types (e.g. application/xml, text/html) parsed as raw string
+app.addContentTypeParser("*", { parseAs: "string" }, (_req, body, done) => {
+  done(null, body);
+});
+
 function makeBearer(secret: string) {
   return async function requireBearer(req: FastifyRequest) {
     const auth = req.headers.authorization;
@@ -111,6 +116,21 @@ app.get<{ Querystring: SubscribeQuery }>(
     });
   }
 );
+
+app.post("/push", async (req, reply) => {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith("Bearer ")) {
+    return reply.code(401).send({ error: "Unauthorized" });
+  }
+  const pubkey = auth.slice(7);
+  const body =
+    typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+  const delivered = await registry.pushToToken(pubkey, { body });
+  if (!delivered) {
+    return reply.code(404).send({ error: "Agent not connected" });
+  }
+  return { ok: true };
+});
 
 // System push to a specific agent pubkey (unauthenticated)
 app.post<{ Body: PushTokenBody }>(
