@@ -112,12 +112,8 @@ ssh "$HOST" "dokku redis:link $REDIS_SERVICE $APP 2>/dev/null || true"
 echo "==> Configuring app..."
 
 if [[ -z "$PUSH_SECRET" ]]; then
-  if $HTTPS; then
-    read -rp "Enter PUSH_SECRET (used to authenticate push requests): " PUSH_SECRET
-  else
-    PUSH_SECRET="dev-push-secret"
-    echo "    No --push-secret provided; using default: $PUSH_SECRET"
-  fi
+  PUSH_SECRET=$(openssl rand -hex 24)
+  echo "    No --push-secret provided; generated: $PUSH_SECRET"
 fi
 
 ssh "$HOST" "dokku config:set --no-restart $APP PUSH_SECRET='$PUSH_SECRET'"
@@ -127,7 +123,7 @@ ssh "$HOST" "dokku config:set --no-restart $APP PUSH_SECRET='$PUSH_SECRET'"
 # ---------------------------------------------------------------------------
 if [[ -n "$DOMAIN" ]]; then
   echo "==> Setting domain to '$DOMAIN'..."
-  ssh "$HOST" "dokku domains:set --no-restart $APP $DOMAIN 2>/dev/null || dokku domains:set $APP $DOMAIN"
+  ssh "$HOST" "dokku domains:set --no-restart $APP $DOMAIN 2>/dev/null || dokku domains:set --no-restart $APP $DOMAIN"
 fi
 
 # ---------------------------------------------------------------------------
