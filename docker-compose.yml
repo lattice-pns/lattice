@@ -3,6 +3,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
 
+  # Scale with: docker compose up --scale lattice=N
   lattice:
     build: .
     restart: unless-stopped

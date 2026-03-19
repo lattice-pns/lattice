@@ -25,16 +25,6 @@ export const Ed25519HeadersSchema = Type.Object(
   { additionalProperties: true }
 );
 
-// /push/token — system push to a specific agent pubkey
-export const PushTokenSchema = Type.Object(
-  {
-    pubkey: Type.String(),
-    body: Type.String(),
-  },
-  { additionalProperties: false }
-);
-export type PushTokenBody = Static<typeof PushTokenSchema>;
-
 // /push/topic — system push to all agents subscribed to a topic
 export const PushTopicSchema = Type.Object(
   {
