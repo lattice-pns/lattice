@@ -34,9 +34,8 @@ server {
 }
 {{ else if eq $scheme "https" }}
 server {
-  listen      [::]:{{ $listen_port }} ssl;
-  listen      {{ $listen_port }} ssl;
-  http2 on;
+  listen      [::]:{{ $listen_port }} ssl http2;
+  listen      {{ $listen_port }} ssl http2;
   {{ if $.SSL_SERVER_NAME }}server_name {{ $.SSL_SERVER_NAME }};{{ end }}
 
   ssl_certificate     {{ $.APP_SSL_PATH }}/server.crt;
