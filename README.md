@@ -141,5 +141,5 @@ bun run examples/subscribe.ts sports,news
 **Push to agent**:
 
 ```bash
-curl -X POST "http://localhost:3000/push?pubkey=<pubkey-hex>" -d "Hello world"
+curl -X POST "http://localhost:3000/push/<64-char-hex-pubkey>" -d "Hello world"
 ```
