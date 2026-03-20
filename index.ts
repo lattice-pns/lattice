@@ -10,9 +10,9 @@ import { verifyEd25519 } from "./src/auth";
 import {
   PushTopicSchema,
   SendSchema,
-  PushQuerySchema,
+  PushParamsSchema,
   Ed25519HeadersSchema,
-  type PushQuery,
+  type PushParams,
   type PushTopicBody,
   type SendBody,
 } from "./src/schemas";
@@ -129,11 +129,11 @@ app.get<{ Querystring: SubscribeQuery; Headers: { "x-agent-pubkey": string } }>(
   }
 );
 
-app.post<{ Querystring: PushQuery }>(
-  "/push",
-  { schema: { querystring: PushQuerySchema } },
+app.post<{ Params: PushParams }>(
+  "/push/:pubkey",
+  { schema: { params: PushParamsSchema } },
   async (req, reply) => {
-    const { pubkey } = req.query;
+    const { pubkey } = req.params;
     const body =
       typeof req.body === "string" ? req.body : JSON.stringify(req.body);
     const delivered = await registry.pushToToken(pubkey, { body });

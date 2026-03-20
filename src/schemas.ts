@@ -1,11 +1,11 @@
 import { Type, type Static } from "@sinclair/typebox";
 
-// /push — query param for agent pubkey/token (legacy, unauthenticated)
-export const PushQuerySchema = Type.Object(
+// /push/:pubkey — path param for agent pubkey/token (unauthenticated)
+export const PushParamsSchema = Type.Object(
   { pubkey: Type.String() },
-  { additionalProperties: true }
+  { additionalProperties: false }
 );
-export type PushQuery = Static<typeof PushQuerySchema>;
+export type PushParams = Static<typeof PushParamsSchema>;
 
 // Ed25519 public key: 32 bytes = 64 hex chars
 export const Ed25519PubkeySchema = Type.String({
