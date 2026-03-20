@@ -112,11 +112,18 @@ test("POST /push/topic returns 400 with invalid body", async () => {
 test("POST /push/topic returns 200 when agent subscribed to topic", async () => {
   const topic = "test-topic-" + Date.now();
   const pubkey = "test-pubkey-" + Date.now();
+  const received: Array<{ id?: string; event?: string; data: unknown }> = [];
   const heartbeatInterval = setInterval(() => {}, 999_999);
   await registry.register({
     pubkey,
     topics: new Set([topic]),
-    write: () => {},
+    write: (event) => {
+      received.push({
+        id: event.id,
+        event: event.event,
+        data: JSON.parse(event.data),
+      });
+    },
     disconnect: () => {},
     heartbeatInterval,
   });
@@ -130,6 +137,22 @@ test("POST /push/topic returns 200 when agent subscribed to topic", async () => 
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ ok: true, recipients: 1 });
+
+    const maxWait = 500;
+    const pollInterval = 10;
+    let notification = received.find((r) => r.event === "notification");
+    for (
+      let waited = 0;
+      !notification && waited < maxWait;
+      waited += pollInterval
+    ) {
+      await new Promise((r) => setTimeout(r, pollInterval));
+      notification = received.find((r) => r.event === "notification");
+    }
+    expect(notification?.data).toMatchObject({
+      body: "Hello",
+      topic,
+    });
   } finally {
     clearInterval(heartbeatInterval);
     await registry.deregister(pubkey);

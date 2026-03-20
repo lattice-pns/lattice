@@ -118,14 +118,14 @@ System broadcast to all agents subscribed to a topic. Requires `Authorization: B
 { "topic": "sports", "body": "Goal! 2-1" }
 ```
 
-Returns `{ "ok": true, "recipients": N }`.
+Returns `{ "ok": true, "recipients": N }`. Delivered SSE `notification` events include `topic` (same string as the request) so subscribers can tell which topic the message was broadcast on.
 
 ## SSE Event Format
 
 ```
 id: <uuid>
 event: notification
-data: {"body":"...","from":"<optional-sender-pubkey-hex>"}
+data: {"body":"...","from":"<optional-sender-pubkey-hex>","topic":"<optional-topic-name>"}
 ```
 
 On connect, an initial `event: connected` frame is sent with the agent's `pubkey` (public key hex) and resolved topic list.
