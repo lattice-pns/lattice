@@ -146,8 +146,9 @@ class Registry {
     notification: Notification
   ): Promise<number> {
     const keys = topics.map((t) => `topic:${t}`);
+    if (keys.length === 0) return 0;
     const uniquePubkeys = new Set<string>(
-      await redis.sunion(keys[0], ...keys.slice(1))
+      await redis.sunion(keys[0]!, ...keys.slice(1))
     );
     if (uniquePubkeys.size === 0) return 0;
 
