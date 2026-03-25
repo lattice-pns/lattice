@@ -8,12 +8,12 @@ import { ulid } from "ulid";
 import { registry } from "./src/registry";
 import { verifyEd25519 } from "./src/auth";
 import {
-  PushTopicSchema,
+  PushTopicsSchema,
   SendSchema,
   PushParamsSchema,
   Ed25519HeadersSchema,
   type PushParams,
-  type PushTopicBody,
+  type PushTopicsBody,
   type SendBody,
 } from "./src/schemas";
 import { formatSseFrame } from "./src/sse";
@@ -143,11 +143,11 @@ app.post<{ Params: PushParams }>(
 );
 
 // System push to all agents subscribed to any of the given topics (bearer auth, deduplicated)
-app.post<{ Body: PushTopicBody }>(
+app.post<{ Body: PushTopicsBody }>(
   "/push/topics",
   {
     preHandler: makeBearer(PUSH_SECRET),
-    schema: { body: PushTopicSchema },
+    schema: { body: PushTopicsSchema },
   },
   async (req) => {
     const { topics, body } = req.body;

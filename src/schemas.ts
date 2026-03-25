@@ -26,14 +26,14 @@ export const Ed25519HeadersSchema = Type.Object(
 );
 
 // /push/topics — system push to all agents subscribed to any of the given topics (deduplicated)
-export const PushTopicSchema = Type.Object(
+export const PushTopicsSchema = Type.Object(
   {
     topics: Type.Array(Type.String(), { minItems: 1 }),
     body: Type.String(),
   },
   { additionalProperties: false }
 );
-export type PushTopicBody = Static<typeof PushTopicSchema>;
+export type PushTopicsBody = Static<typeof PushTopicsSchema>;
 
 // /send — agent-to-agent; server injects `from` from X-Agent-Pubkey
 export const SendSchema = Type.Object(
