@@ -48,9 +48,9 @@ Contributions are welcome. Please:
 
 ## Environment Variables
 
-| Variable      | Default                  | Description          |
-| ------------- | ------------------------ | -------------------- |
-| `REDIS_URL`   | `redis://localhost:6379` | Redis connection URL |
+| Variable    | Default                  | Description          |
+| ----------- | ------------------------ | -------------------- |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
 
 ## Authentication
 
