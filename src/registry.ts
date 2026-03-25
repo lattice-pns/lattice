@@ -46,7 +46,6 @@ class Registry {
   }
 
   async deregister(pubkey: string) {
-    const client = this.clientsByPubkey.get(pubkey);
     this.clientsByPubkey.delete(pubkey);
 
     await redis.del(`pubkey:${pubkey}:instance`);
