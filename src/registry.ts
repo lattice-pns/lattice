@@ -145,10 +145,10 @@ class Registry {
     topics: string[],
     notification: Notification
   ): Promise<number> {
-    const sets = await Promise.all(
-      topics.map((t) => redis.smembers(`topic:${t}`))
+    const keys = topics.map((t) => `topic:${t}`);
+    const uniquePubkeys = new Set<string>(
+      await redis.sunion(keys[0], ...keys.slice(1))
     );
-    const uniquePubkeys = new Set<string>(sets.flat());
     if (uniquePubkeys.size === 0) return 0;
 
     const results = await Promise.all(

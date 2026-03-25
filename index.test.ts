@@ -195,7 +195,6 @@ test("POST /push/topics deduplicates agents subscribed to multiple topics", asyn
     for (let waited = 0; waited < maxWait; waited += pollInterval) {
       await new Promise((r) => setTimeout(r, pollInterval));
       notifications = received.filter((r) => r.event === "notification");
-      if (notifications.length > 0) break;
     }
     expect(notifications).toHaveLength(1);
     expect(notifications[0]?.data).toMatchObject({
