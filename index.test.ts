@@ -149,7 +149,10 @@ test("POST /push/topics returns 200 when agent subscribed to one of the topics",
       await new Promise((r) => setTimeout(r, pollInterval));
       notification = received.find((r) => r.event === "notification");
     }
-    expect(notification?.data).toMatchObject({ body: "Hello", topics: [topic] });
+    expect(notification?.data).toMatchObject({
+      body: "Hello",
+      topics: [topic],
+    });
   } finally {
     clearInterval(heartbeatInterval);
     await registry.deregister(pubkey);
@@ -195,7 +198,10 @@ test("POST /push/topics deduplicates agents subscribed to multiple topics", asyn
       if (notifications.length > 0) break;
     }
     expect(notifications).toHaveLength(1);
-    expect(notifications[0]?.data).toMatchObject({ body: "Dedup test", topics: [topicA, topicB] });
+    expect(notifications[0]?.data).toMatchObject({
+      body: "Dedup test",
+      topics: [topicA, topicB],
+    });
   } finally {
     clearInterval(heartbeatInterval);
     await registry.deregister(pubkey);
