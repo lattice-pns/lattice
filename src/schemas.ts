@@ -25,10 +25,10 @@ export const Ed25519HeadersSchema = Type.Object(
   { additionalProperties: true }
 );
 
-// /push/topic — system push to all agents subscribed to a topic
+// /push/topics — system push to all agents subscribed to any of the given topics (deduplicated)
 export const PushTopicSchema = Type.Object(
   {
-    topic: Type.String(),
+    topics: Type.Array(Type.String(), { minItems: 1 }),
     body: Type.String(),
   },
   { additionalProperties: false }

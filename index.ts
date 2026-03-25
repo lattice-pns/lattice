@@ -142,16 +142,16 @@ app.post<{ Params: PushParams }>(
   }
 );
 
-// System push to all agents subscribed to a topic (bearer auth)
+// System push to all agents subscribed to any of the given topics (bearer auth, deduplicated)
 app.post<{ Body: PushTopicBody }>(
-  "/push/topic",
+  "/push/topics",
   {
     preHandler: makeBearer(PUSH_SECRET),
     schema: { body: PushTopicSchema },
   },
   async (req) => {
-    const { topic, body } = req.body;
-    const recipients = await registry.pushToTopic(topic, { body, topic });
+    const { topics, body } = req.body;
+    const recipients = await registry.pushToTopics(topics, { body });
     return { ok: true, recipients };
   }
 );
