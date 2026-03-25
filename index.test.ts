@@ -62,7 +62,6 @@ test("POST /push returns 200 when agent is connected", async () => {
   const heartbeatInterval = setInterval(() => {}, 999_999);
   await registry.register({
     pubkey,
-    topics: new Set(),
     write: (event) => {
       received.push({ event: event.event, data: JSON.parse(event.data) });
     },
@@ -99,114 +98,6 @@ test("POST /push returns 200 when agent is connected", async () => {
   }
 });
 
-test("POST /push/topics returns 400 with invalid body", async () => {
-  const res = await app.inject({
-    method: "POST",
-    url: "/push/topics",
-    headers: { authorization: "Bearer dev-push-secret" },
-    payload: { topics: ["news"] }, // missing body
-  });
-  expect(res.statusCode).toBe(400);
-});
-
-test("POST /push/topics returns 200 when agent subscribed to one of the topics", async () => {
-  const topic = "test-topic-" + Date.now();
-  const pubkey = "test-pubkey-" + Date.now();
-  const received: Array<{ id?: string; event?: string; data: unknown }> = [];
-  const heartbeatInterval = setInterval(() => {}, 999_999);
-  await registry.register({
-    pubkey,
-    topics: new Set([topic]),
-    write: (event) => {
-      received.push({
-        id: event.id,
-        event: event.event,
-        data: JSON.parse(event.data),
-      });
-    },
-    disconnect: () => {},
-    heartbeatInterval,
-  });
-
-  try {
-    const res = await app.inject({
-      method: "POST",
-      url: "/push/topics",
-      headers: { authorization: "Bearer dev-push-secret" },
-      payload: { topics: [topic], body: "Hello" },
-    });
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ ok: true, recipients: 1 });
-
-    const maxWait = 500;
-    const pollInterval = 10;
-    let notification = received.find((r) => r.event === "notification");
-    for (
-      let waited = 0;
-      !notification && waited < maxWait;
-      waited += pollInterval
-    ) {
-      await new Promise((r) => setTimeout(r, pollInterval));
-      notification = received.find((r) => r.event === "notification");
-    }
-    expect(notification?.data).toMatchObject({
-      body: "Hello",
-      topics: [topic],
-    });
-  } finally {
-    clearInterval(heartbeatInterval);
-    await registry.deregister(pubkey);
-  }
-});
-
-test("POST /push/topics deduplicates agents subscribed to multiple topics", async () => {
-  const topicA = "test-topic-a-" + Date.now();
-  const topicB = "test-topic-b-" + Date.now();
-  const pubkey = "test-pubkey-dedup-" + Date.now();
-  const received: Array<{ id?: string; event?: string; data: unknown }> = [];
-  const heartbeatInterval = setInterval(() => {}, 999_999);
-  await registry.register({
-    pubkey,
-    topics: new Set([topicA, topicB]),
-    write: (event) => {
-      received.push({
-        id: event.id,
-        event: event.event,
-        data: JSON.parse(event.data),
-      });
-    },
-    disconnect: () => {},
-    heartbeatInterval,
-  });
-
-  try {
-    const res = await app.inject({
-      method: "POST",
-      url: "/push/topics",
-      headers: { authorization: "Bearer dev-push-secret" },
-      payload: { topics: [topicA, topicB], body: "Dedup test" },
-    });
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ ok: true, recipients: 1 });
-
-    const maxWait = 500;
-    const pollInterval = 10;
-    let notifications: typeof received = [];
-    for (let waited = 0; waited < maxWait; waited += pollInterval) {
-      await new Promise((r) => setTimeout(r, pollInterval));
-      notifications = received.filter((r) => r.event === "notification");
-    }
-    expect(notifications).toHaveLength(1);
-    expect(notifications[0]?.data).toMatchObject({
-      body: "Dedup test",
-      topics: [topicA, topicB],
-    });
-  } finally {
-    clearInterval(heartbeatInterval);
-    await registry.deregister(pubkey);
-  }
-});
-
 test("POST /send returns 202 when agent not connected (buffered)", async () => {
   const { pubkeyHex, privateKeyPem } = generateEd25519Keys();
   const payload = { to: "nonexistent-pubkey", body: "Hello" };
@@ -235,7 +126,6 @@ test("POST /send returns 200 and injects from when agent is connected", async ()
   const heartbeatInterval = setInterval(() => {}, 999_999);
   await registry.register({
     pubkey: recipientPubkey,
-    topics: new Set(),
     write: (event) => {
       received.push({
         id: event.id,

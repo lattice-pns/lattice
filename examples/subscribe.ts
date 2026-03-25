@@ -5,11 +5,7 @@
  * The public key (hex) becomes the device token.
  *
  * Usage:
- *   bun run examples/subscribe.ts [topics]
- *
- * Examples:
  *   bun run examples/subscribe.ts
- *   bun run examples/subscribe.ts sports,news
  */
 
 import { generateKeyPairSync, sign } from "crypto";
@@ -50,12 +46,11 @@ function signRequest(
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 const { pubkeyHex, privateKeyPem } = generateKeys();
-const topics = process.argv[2] ?? "general";
 const timestamp = Math.floor(Date.now() / 1000);
 const signature = signRequest(privateKeyPem, "", timestamp);
 
-const url = `${SERVER_URL}/subscribe?topics=${encodeURIComponent(topics)}`;
-console.log(`Connecting as pubkey=${pubkeyHex}, topics=${topics}`);
+const url = `${SERVER_URL}/subscribe`;
+console.log(`Connecting as pubkey=${pubkeyHex}`);
 
 const res = await fetch(url, {
   headers: {

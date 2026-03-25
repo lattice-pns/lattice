@@ -42,26 +42,13 @@ class Registry {
     }
     this.clientsByPubkey.set(client.pubkey, client);
 
-    const ops: Promise<unknown>[] = [
-      redis.set(`pubkey:${client.pubkey}:instance`, INSTANCE_ID),
-    ];
-    for (const topic of client.topics) {
-      ops.push(redis.sadd(`topic:${topic}`, client.pubkey));
-    }
-    await Promise.all(ops);
+    await redis.set(`pubkey:${client.pubkey}:instance`, INSTANCE_ID);
   }
 
   async deregister(pubkey: string) {
-    const client = this.clientsByPubkey.get(pubkey);
     this.clientsByPubkey.delete(pubkey);
 
-    const ops: Promise<unknown>[] = [redis.del(`pubkey:${pubkey}:instance`)];
-    if (client) {
-      for (const topic of client.topics) {
-        ops.push(redis.srem(`topic:${topic}`, pubkey));
-      }
-    }
-    await Promise.all(ops);
+    await redis.del(`pubkey:${pubkey}:instance`);
   }
 
   private async bufferEvent(pubkey: string, event: SseEvent): Promise<void> {
@@ -139,23 +126,6 @@ class Registry {
       JSON.stringify({ pubkey, notification, eventId })
     );
     return receivers > 0;
-  }
-
-  async pushToTopics(
-    topics: string[],
-    notification: Notification
-  ): Promise<number> {
-    const keys = topics.map((t) => `topic:${t}`);
-    if (keys.length === 0) return 0;
-    const uniquePubkeys = new Set<string>(
-      await redis.sunion(keys[0]!, ...keys.slice(1))
-    );
-    if (uniquePubkeys.size === 0) return 0;
-
-    const results = await Promise.all(
-      [...uniquePubkeys].map((pubkey) => this.pushToToken(pubkey, notification))
-    );
-    return results.filter(Boolean).length;
   }
 
   connectionCount(): number {
