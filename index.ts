@@ -151,7 +151,7 @@ app.post<{ Body: PushTopicBody }>(
   },
   async (req) => {
     const { topics, body } = req.body;
-    const recipients = await registry.pushToTopics(topics, { body });
+    const recipients = await registry.pushToTopics(topics, { body, topics });
     return { ok: true, recipients };
   }
 );

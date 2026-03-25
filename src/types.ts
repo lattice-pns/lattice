@@ -1,6 +1,7 @@
 export interface Notification {
   body: string;
   from?: string; // sender's Ed25519 public key hex; absent for system pushes
+  topics?: string[]; // topics this notification was pushed to; absent for direct pushes
 }
 
 export interface SseEvent {
