@@ -99,17 +99,17 @@ test("POST /push returns 200 when agent is connected", async () => {
   }
 });
 
-test("POST /push/topic returns 400 with invalid body", async () => {
+test("POST /push/topics returns 400 with invalid body", async () => {
   const res = await app.inject({
     method: "POST",
-    url: "/push/topic",
+    url: "/push/topics",
     headers: { authorization: "Bearer dev-push-secret" },
-    payload: { topic: "news" }, // missing body
+    payload: { topics: ["news"] }, // missing body
   });
   expect(res.statusCode).toBe(400);
 });
 
-test("POST /push/topic returns 200 when agent subscribed to topic", async () => {
+test("POST /push/topics returns 200 when agent subscribed to one of the topics", async () => {
   const topic = "test-topic-" + Date.now();
   const pubkey = "test-pubkey-" + Date.now();
   const received: Array<{ id?: string; event?: string; data: unknown }> = [];
@@ -131,9 +131,9 @@ test("POST /push/topic returns 200 when agent subscribed to topic", async () => 
   try {
     const res = await app.inject({
       method: "POST",
-      url: "/push/topic",
+      url: "/push/topics",
       headers: { authorization: "Bearer dev-push-secret" },
-      payload: { topic, body: "Hello" },
+      payload: { topics: [topic], body: "Hello" },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ ok: true, recipients: 1 });
@@ -151,7 +151,55 @@ test("POST /push/topic returns 200 when agent subscribed to topic", async () => 
     }
     expect(notification?.data).toMatchObject({
       body: "Hello",
-      topic,
+      topics: [topic],
+    });
+  } finally {
+    clearInterval(heartbeatInterval);
+    await registry.deregister(pubkey);
+  }
+});
+
+test("POST /push/topics deduplicates agents subscribed to multiple topics", async () => {
+  const topicA = "test-topic-a-" + Date.now();
+  const topicB = "test-topic-b-" + Date.now();
+  const pubkey = "test-pubkey-dedup-" + Date.now();
+  const received: Array<{ id?: string; event?: string; data: unknown }> = [];
+  const heartbeatInterval = setInterval(() => {}, 999_999);
+  await registry.register({
+    pubkey,
+    topics: new Set([topicA, topicB]),
+    write: (event) => {
+      received.push({
+        id: event.id,
+        event: event.event,
+        data: JSON.parse(event.data),
+      });
+    },
+    disconnect: () => {},
+    heartbeatInterval,
+  });
+
+  try {
+    const res = await app.inject({
+      method: "POST",
+      url: "/push/topics",
+      headers: { authorization: "Bearer dev-push-secret" },
+      payload: { topics: [topicA, topicB], body: "Dedup test" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true, recipients: 1 });
+
+    const maxWait = 500;
+    const pollInterval = 10;
+    let notifications: typeof received = [];
+    for (let waited = 0; waited < maxWait; waited += pollInterval) {
+      await new Promise((r) => setTimeout(r, pollInterval));
+      notifications = received.filter((r) => r.event === "notification");
+    }
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]?.data).toMatchObject({
+      body: "Dedup test",
+      topics: [topicA, topicB],
     });
   } finally {
     clearInterval(heartbeatInterval);

@@ -141,15 +141,19 @@ class Registry {
     return receivers > 0;
   }
 
-  async pushToTopic(
-    topic: string,
+  async pushToTopics(
+    topics: string[],
     notification: Notification
   ): Promise<number> {
-    const pubkeys = await redis.smembers(`topic:${topic}`);
-    if (pubkeys.length === 0) return 0;
+    const keys = topics.map((t) => `topic:${t}`);
+    if (keys.length === 0) return 0;
+    const uniquePubkeys = new Set<string>(
+      await redis.sunion(keys[0]!, ...keys.slice(1))
+    );
+    if (uniquePubkeys.size === 0) return 0;
 
     const results = await Promise.all(
-      pubkeys.map((pubkey) => this.pushToToken(pubkey, notification))
+      [...uniquePubkeys].map((pubkey) => this.pushToToken(pubkey, notification))
     );
     return results.filter(Boolean).length;
   }

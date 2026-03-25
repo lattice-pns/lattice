@@ -8,12 +8,12 @@ import { ulid } from "ulid";
 import { registry } from "./src/registry";
 import { verifyEd25519 } from "./src/auth";
 import {
-  PushTopicSchema,
+  PushTopicsSchema,
   SendSchema,
   PushParamsSchema,
   Ed25519HeadersSchema,
   type PushParams,
-  type PushTopicBody,
+  type PushTopicsBody,
   type SendBody,
 } from "./src/schemas";
 import { formatSseFrame } from "./src/sse";
@@ -142,16 +142,16 @@ app.post<{ Params: PushParams }>(
   }
 );
 
-// System push to all agents subscribed to a topic (bearer auth)
-app.post<{ Body: PushTopicBody }>(
-  "/push/topic",
+// System push to all agents subscribed to any of the given topics (bearer auth, deduplicated)
+app.post<{ Body: PushTopicsBody }>(
+  "/push/topics",
   {
     preHandler: makeBearer(PUSH_SECRET),
-    schema: { body: PushTopicSchema },
+    schema: { body: PushTopicsSchema },
   },
   async (req) => {
-    const { topic, body } = req.body;
-    const recipients = await registry.pushToTopic(topic, { body, topic });
+    const { topics, body } = req.body;
+    const recipients = await registry.pushToTopics(topics, { body, topics });
     return { ok: true, recipients };
   }
 );
