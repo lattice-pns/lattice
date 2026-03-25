@@ -7,8 +7,7 @@ set -euo pipefail
 #   ./setup-dokku.sh --host user@myserver.com --app lattice \
 #     [--domain lattice.example.com] \
 #     [--scale 3] \
-#     [--https --email admin@example.com] \
-#     [--push-secret mysecret]
+#     [--https --email admin@example.com]
 # ---------------------------------------------------------------------------
 
 HOST=""
@@ -17,7 +16,6 @@ DOMAIN=""
 SCALE=1
 HTTPS=false
 EMAIL=""
-PUSH_SECRET=""
 
 # ---------------------------------------------------------------------------
 # Arg parsing
@@ -30,10 +28,9 @@ while [[ $# -gt 0 ]]; do
     --scale)       SCALE="$2";       shift 2 ;;
     --https)       HTTPS=true;       shift   ;;
     --email)       EMAIL="$2";       shift 2 ;;
-    --push-secret) PUSH_SECRET="$2"; shift 2 ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 --host user@server --app <name> [--domain <domain>] [--scale N] [--https --email <email>] [--push-secret <secret>]"
+      echo "Usage: $0 --host user@server --app <name> [--domain <domain>] [--scale N] [--https --email <email>]"
       exit 1
       ;;
   esac
@@ -105,18 +102,6 @@ ssh "$HOST" "dokku redis:create $REDIS_SERVICE 2>/dev/null || true"
 
 echo "    Linking Redis to app (if not already linked)..."
 ssh "$HOST" "dokku redis:link $REDIS_SERVICE $APP 2>/dev/null || true"
-
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
-echo "==> Configuring app..."
-
-if [[ -z "$PUSH_SECRET" ]]; then
-  PUSH_SECRET=$(openssl rand -hex 24)
-  echo "    No --push-secret provided; generated: $PUSH_SECRET"
-fi
-
-ssh "$HOST" "dokku config:set --no-restart $APP PUSH_SECRET='$PUSH_SECRET'"
 
 # ---------------------------------------------------------------------------
 # Domain
@@ -191,7 +176,4 @@ echo "    SSE test:"
 echo "      curl -N -H 'Accept: text/event-stream' $BASE_URL/sse/<agent-id>"
 echo ""
 echo "    Push test:"
-echo "      curl -X POST $BASE_URL/push/<agent-id> \\"
-echo "        -H 'Authorization: Bearer <your-push-secret>' \\"
-echo "        -H 'Content-Type: application/json' \\"
-echo "        -d '{\"message\": \"hello\"}'"
+echo "      curl -X POST $BASE_URL/push/<agent-id> -d 'hello'"

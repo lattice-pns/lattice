@@ -9,7 +9,6 @@ services:
     restart: unless-stopped
     environment:
       REDIS_URL: redis://redis:6379
-      PUSH_SECRET: ${PUSH_SECRET:-dev-push-secret}
     depends_on:
       - redis
 
