@@ -8,18 +8,14 @@ import { ulid } from "ulid";
 import { registry } from "./src/registry";
 import { verifyEd25519 } from "./src/auth";
 import {
-  PushTopicsSchema,
   SendSchema,
   PushParamsSchema,
   Ed25519HeadersSchema,
   type PushParams,
-  type PushTopicsBody,
   type SendBody,
 } from "./src/schemas";
 import { formatSseFrame } from "./src/sse";
-import type { SseClient, SseEvent, SubscribeQuery } from "./src/types";
-
-const PUSH_SECRET = process.env.PUSH_SECRET ?? "dev-push-secret";
+import type { SseClient, SseEvent } from "./src/types";
 
 const app = Fastify({ logger: true });
 
@@ -27,15 +23,6 @@ const app = Fastify({ logger: true });
 app.addContentTypeParser("*", { parseAs: "string" }, (_req, body, done) => {
   done(null, body);
 });
-
-function makeBearer(secret: string) {
-  return async function requireBearer(req: FastifyRequest) {
-    const auth = req.headers.authorization;
-    if (!auth?.startsWith("Bearer ") || auth.slice(7) !== secret) {
-      throw Object.assign(new Error("Unauthorized"), { statusCode: 401 });
-    }
-  };
-}
 
 // Format thrown errors consistently as { error: message }
 app.setErrorHandler(
@@ -50,7 +37,7 @@ app.get("/", async () => {
 });
 
 // SSE subscribe — agents connect with Ed25519 auth; pubkey is their identity
-app.get<{ Querystring: SubscribeQuery; Headers: { "x-agent-pubkey": string } }>(
+app.get<{ Headers: { "x-agent-pubkey": string } }>(
   "/subscribe",
   {
     preHandler: verifyEd25519,
@@ -58,16 +45,6 @@ app.get<{ Querystring: SubscribeQuery; Headers: { "x-agent-pubkey": string } }>(
   },
   async (req, reply) => {
     const pubkey = req.headers["x-agent-pubkey"]!; // present after verifyEd25519
-    const { topics: topicsStr } = req.query;
-
-    const topics = topicsStr
-      ? new Set(
-          topicsStr
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
-        )
-      : new Set<string>();
 
     reply.hijack();
 
@@ -99,7 +76,6 @@ app.get<{ Querystring: SubscribeQuery; Headers: { "x-agent-pubkey": string } }>(
 
     const client: SseClient = {
       pubkey,
-      topics,
       write,
       disconnect,
       heartbeatInterval,
@@ -110,7 +86,7 @@ app.get<{ Querystring: SubscribeQuery; Headers: { "x-agent-pubkey": string } }>(
     write({
       id: ulid(),
       event: "connected",
-      data: JSON.stringify({ pubkey, topics: [...topics] }),
+      data: JSON.stringify({ pubkey }),
     });
 
     const lastEventId = req.headers["last-event-id"];
@@ -139,20 +115,6 @@ app.post<{ Params: PushParams }>(
     const delivered = await registry.pushToToken(pubkey, { body });
     if (!delivered) return reply.code(202).send({ ok: true, buffered: true });
     return { ok: true };
-  }
-);
-
-// System push to all agents subscribed to any of the given topics (bearer auth, deduplicated)
-app.post<{ Body: PushTopicsBody }>(
-  "/push/topics",
-  {
-    preHandler: makeBearer(PUSH_SECRET),
-    schema: { body: PushTopicsSchema },
-  },
-  async (req) => {
-    const { topics, body } = req.body;
-    const recipients = await registry.pushToTopics(topics, { body, topics });
-    return { ok: true, recipients };
   }
 );
 

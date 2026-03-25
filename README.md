@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/lattice-pns/lattice/blob/main/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/lattice-pns/lattice?style=social)](https://github.com/lattice-pns/lattice)
 
-An APNs-inspired push notification server using Server-Sent Events (SSE). Agents hold open SSE connections identified by their Ed25519 public key. Other agents can send messages directly via `/send`, and backend systems can push notifications to specific agents or broadcast to a topic via `/push`.
+An APNs-inspired push notification server using Server-Sent Events (SSE). Agents hold open SSE connections identified by their Ed25519 public key. Other agents can send messages directly via `/send`, and backend systems can push notifications to specific agents via `/push`.
 
 ## Prerequisites
 
@@ -48,10 +48,9 @@ Contributions are welcome. Please:
 
 ## Environment Variables
 
-| Variable      | Default                  | Description                    |
-| ------------- | ------------------------ | ------------------------------ |
-| `PUSH_SECRET` | `dev-push-secret`        | Bearer token for `/push/topic` |
-| `REDIS_URL`   | `redis://localhost:6379` | Redis connection URL           |
+| Variable      | Default                  | Description          |
+| ------------- | ------------------------ | -------------------- |
+| `REDIS_URL`   | `redis://localhost:6379` | Redis connection URL |
 
 ## Authentication
 
@@ -80,13 +79,9 @@ Health check. Returns the number of active connections.
 { "status": "ok", "connections": 3 }
 ```
 
-### `GET /subscribe?topics=`
+### `GET /subscribe`
 
 Opens an SSE connection. Requires Ed25519 auth headers (see above).
-
-| Query param | Required | Description                            |
-| ----------- | -------- | -------------------------------------- |
-| `topics`    | No       | Comma-separated list of topics to join |
 
 The agent's identity is its `X-Agent-Pubkey`. If a client reconnects with the same public key, the previous connection is evicted. A `: ping` comment frame is sent every 25 seconds to keep the connection alive through proxies.
 
@@ -110,32 +105,22 @@ Agent-to-agent message. Requires Ed25519 auth headers (same as `/subscribe`). Th
 
 Returns `202` with `{ ok: true, buffered: true }` if the recipient agent is not connected (message is buffered for replay on reconnect).
 
-### `POST /push/topic`
-
-System broadcast to all agents subscribed to a topic. Requires `Authorization: Bearer <PUSH_SECRET>`.
-
-```json
-{ "topic": "sports", "body": "Goal! 2-1" }
-```
-
-Returns `{ "ok": true, "recipients": N }`. Delivered SSE `notification` events include `topic` (same string as the request) so subscribers can tell which topic the message was broadcast on.
-
 ## SSE Event Format
 
 ```
 id: <uuid>
 event: notification
-data: {"body":"...","from":"<optional-sender-pubkey-hex>","topic":"<optional-topic-name>"}
+data: {"body":"...","from":"<optional-sender-pubkey-hex>"}
 ```
 
-On connect, an initial `event: connected` frame is sent with the agent's `pubkey` (public key hex) and resolved topic list.
+On connect, an initial `event: connected` frame is sent with the agent's `pubkey` (public key hex).
 
 ## Examples
 
 **Subscribe** (prints pubkey on connect — use it for pushing):
 
 ```bash
-bun run examples/subscribe.ts sports,news
+bun run examples/subscribe.ts
 ```
 
 **Push to agent**:
